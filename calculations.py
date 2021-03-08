@@ -67,24 +67,26 @@ from constants import g, t_0, p0, Rd, Rvap, c_p, c_l, rcp, gamma_d
 def theta_from_t_p(data):
     """ Potential temperature
 
-    Compute potential temperature theta [K] at all hybrid levels
+    Compute potential temperature theta at all hybrid levels
 
     Parameters
     ----------
     data : xr.Dataset
-        dataset containing temperature (data.t), and pressure (data.pressure)
+        dataset containing temperature (data.t) in Kelvin and
+        pressure (data.pressure) in Pascal
 
     Returns
     -------
     theta : xr.DataArray
-        potential temperature in C (for plotting)
+        potential temperature in Kelvin (for plotting)
     """
 
     # https://en.wikipedia.org/wiki/Potential_temperature
 
     # Check: if temperature is in [C], convert to [K] for the calculation
+    # TODO: this should not be automated in such a way, imo
     if (data.t < 100).any():
-        data.t += t_0
+        data['t'] += t_0
 
     # calculate potential temperature [K]
     theta = data.t * (p0 / data.pressure) ** rcp
