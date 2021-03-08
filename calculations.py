@@ -65,8 +65,9 @@ from constants import g, t_0, p0, Rd, Rvap, c_p, c_l, rcp, gamma_d
 # %% DRY THERMODYNAMICS
 
 def theta_from_t_p(data):
-    '''
-    Potential temperature theta [K] at all hybrid levels
+    """ Potential temperature
+
+    Compute potential temperature theta [K] at all hybrid levels
 
     Parameters
     ----------
@@ -77,7 +78,7 @@ def theta_from_t_p(data):
     -------
     theta : xr.DataArray
         potential temperature in C (for plotting)
-    '''
+    """
 
     # https://en.wikipedia.org/wiki/Potential_temperature
 
@@ -86,7 +87,7 @@ def theta_from_t_p(data):
         data.t += t_0
 
     # calculate potential temperature [K]
-    theta = data.t * (p0 / data.pressure)**rcp
+    theta = data.t * (p0 / data.pressure) ** rcp
 
     return theta
 
@@ -124,7 +125,7 @@ def windspeed(data):
     else:
         w = data.w_ms
 
-    wspd = np.sqrt(data.u**2 + data.v**2 + w**2)
+    wspd = np.sqrt(data.u ** 2 + data.v ** 2 + w ** 2)
 
     return wspd
 
@@ -150,7 +151,7 @@ def es_from_t(data):
     if (data.t < 100).any():
         data.t += t_0
 
-    es = 611.2*np.exp(17.67 * (data.t-t_0) / (data.t-29.65))
+    es = 611.2 * np.exp(17.67 * (data.t - t_0) / (data.t - 29.65))
     return es
 
 
@@ -183,7 +184,7 @@ def rh_from_t_q_p(data):
     es = es_from_t(data)
 
     # Get relative humidity
-    rh = 100 * data.q * data.pressure * (0.622*es)**(-1)
+    rh = 100 * data.q * data.pressure * (0.622 * es) ** (-1)
     return rh
 
 
@@ -214,12 +215,12 @@ def w_from_omega(data):
     e = data.rh / 100 * es_from_t(data)
 
     # Get density (Wallace & Hobbs [2006], pg. 67, above Eq. 3.15)
-    rho_dry = (data.pressure - e)/(Rd*data.t)
-    rho_moist = e/(Rvap*data.t)
+    rho_dry = (data.pressure - e) / (Rd * data.t)
+    rho_moist = e / (Rvap * data.t)
     rho = rho_dry + rho_moist
 
     # Get vertical velocity in [m/s]: Hobbs [2006], Eq. 7.33
-    w_ms = -rho*g*data.w
+    w_ms = -rho * g * data.w
 
     return w_ms
 
@@ -247,8 +248,8 @@ def T_lcl_from_T_rh(data):
     if 'rh' not in data.keys():
         data['rh'] = rh_from_t_q_p(data)
 
-    denominator = (1 / (data.t-55)) + (np.log(data.rh/100) / 2840)
-    T_lcl = 1/denominator + 55
+    denominator = (1 / (data.t - 55)) + (np.log(data.rh / 100) / 2840)
+    T_lcl = 1 / denominator + 55
     return T_lcl
 
 
@@ -276,11 +277,11 @@ def theta_e_from_t_p_q_Tlcl(data):
     T_lcl = T_lcl_from_T_rh(data)
 
     # Define exponents
-    exp_1 = rcp * (1 - 0.28*data.q)
-    exp_2 = (3.376/T_lcl - 0.00254) * 1e3*data.q*(1+0.81*data.q)
+    exp_1 = rcp * (1 - 0.28 * data.q)
+    exp_2 = (3.376 / T_lcl - 0.00254) * 1e3 * data.q * (1 + 0.81 * data.q)
 
     # Get theta_e
-    theta_e = data.t * (p0/data.pressure)**exp_1 * np.exp(exp_2)
+    theta_e = data.t * (p0 / data.pressure) ** exp_1 * np.exp(exp_2)
 
     return theta_e
 
@@ -305,11 +306,11 @@ def theta_es_from_t_p_q(data):
     '''
 
     # Define exponents
-    exp_1 = rcp * (1 - 0.28*data.q)
-    exp_2 = (3.376/data.t - 0.00254) * 1e3*data.q*(1+0.81*data.q)
+    exp_1 = rcp * (1 - 0.28 * data.q)
+    exp_2 = (3.376 / data.t - 0.00254) * 1e3 * data.q * (1 + 0.81 * data.q)
 
     # Get theta_e
-    theta_es = data.t * (p0/data.pressure)**exp_1 * np.exp(exp_2)
+    theta_es = data.t * (p0 / data.pressure) ** exp_1 * np.exp(exp_2)
 
     return theta_es
 
@@ -338,29 +339,30 @@ def N_moist_squared(data):
     # first get mixing ratios of all components (common denominator),
     # then sum them: r_tot = m_water_total / m_dry_air
 
-    r_vap = data.q / (1 - data.q)            # water vapor / dry air
+    r_vap = data.q / (1 - data.q)  # water vapor / dry air
     r_w_cloud = data.clwc / (1 - data.clwc)  # cloud liquid water / dry air
     r_i_cloud = data.ciwc / (1 - data.ciwc)  # cloud ice water / dry air
-    r_rain = data.crwc / (1 - data.crwc)     # rain / dry air
-    r_snow = data.cswc / (1 - data.cswc)     # snow / dry air
+    r_rain = data.crwc / (1 - data.crwc)  # rain / dry air
+    r_snow = data.cswc / (1 - data.cswc)  # snow / dry air
     r_tot = r_vap + r_w_cloud + r_i_cloud + r_rain + r_snow  # total water
 
     # Moist adiabatic lapse rate, after Stull [2011], eq. 4.37b
-    a = 8711    # [K]
+    a = 8711  # [K]
     b = 1.35e7  # [K^2]
 
     # TODO: calculating gamma, use total water as well or just vapor?
-    gamma_m = gamma_d * (1+(a*data.q/data.t)) / (1+(b*data.q/(data.t**2)))
+    gamma_m = gamma_d * (1 + (a * data.q / data.t)) / (
+                1 + (b * data.q / (data.t ** 2)))
 
     # numpy can't derive on a non-uniform meshgrid: get df and dz separately
-    df = np.gradient((c_p + c_l*r_tot) * np.log(data.theta_e), axis=0)
+    df = np.gradient((c_p + c_l * r_tot) * np.log(data.theta_e), axis=0)
     dz = np.gradient(data.geopotential_height, axis=0)
     dq = np.gradient(r_tot, axis=0)
 
-    term_1 = gamma_m * (df/dz)
-    term_2 = (c_l * gamma_m * np.log(data.t) + g) * (dq/dz)
+    term_1 = gamma_m * (df / dz)
+    term_2 = (c_l * gamma_m * np.log(data.t) + g) * (dq / dz)
 
-    frac = 1/(1 + r_tot)
+    frac = 1 / (1 + r_tot)
     N_m_squared = frac * (term_1 - term_2)
 
     return N_m_squared
@@ -393,8 +395,9 @@ def bearing(lon0, lat0, lon1, lat1):
     [lon0, lat0, lon1, lat1] = np.deg2rad([lon0, lat0, lon1, lat1])
     dLon = lon1 - lon0
 
-    y = np.sin(dLon)*np.cos(lat1)
-    x = np.cos(lat0)*np.sin(lat1) - np.sin(lat0)*np.cos(lat1)*np.cos(dLon)
+    y = np.sin(dLon) * np.cos(lat1)
+    x = np.cos(lat0) * np.sin(lat1) - np.sin(lat0) * np.cos(lat1) * np.cos(
+        dLon)
 
     # arctan2 chooses quadrant correctly: resulting angle will lie between
     #   -pi/2 and pi/2 since dLon > 0 by definition of the cross-sections
@@ -404,7 +407,7 @@ def bearing(lon0, lat0, lon1, lat1):
 
     # however, we want to keep sign of v for the view from the south:
     # limit bearing from -90 to 90 deg (-pi/2 to pi/2) around north
-    if bearing > np.pi/2:
+    if bearing > np.pi / 2:
         bearing = bearing - np.pi
 
     return bearing
@@ -444,7 +447,7 @@ def angle(lon0, lat0, lon1, lat1):
 
     # however, we want to keep sign of v for the view from the south:
     # limit angle from -90 to 90 deg (-pi/2 to pi/2) around north
-    if angle > np.pi/2:
+    if angle > np.pi / 2:
         angle = angle - np.pi
 
     # angle = np.rad2deg(angle)  # uncomment if we want degrees, not radians
@@ -474,8 +477,8 @@ def diag_wind(u, v, angle):
 
     '''
 
-    transect_plane_wind = -v*np.cos(angle) + u*np.sin(angle)
-    out_of_page_wind = v*np.sin(angle) + u*np.cos(angle)
+    transect_plane_wind = -v * np.cos(angle) + u * np.sin(angle)
+    out_of_page_wind = v * np.sin(angle) + u * np.cos(angle)
 
     return out_of_page_wind, transect_plane_wind
 
@@ -504,11 +507,11 @@ def calculate_all_vars(ds):
 
     # add all calculated variables
     # TODO check calculations with MetPy / atmos packages?
-    ds['rh'] = rh_from_t_q_p(ds)       # Needs temperature still in [K]
-    ds['theta'] = theta_from_t_p(ds)   # Potential temperature [K]
+    ds['rh'] = rh_from_t_q_p(ds)  # Needs temperature still in [K]
+    ds['theta'] = theta_from_t_p(ds)  # Potential temperature [K]
     ds['theta_e'] = theta_e_from_t_p_q_Tlcl(ds)  # Equivalent pot. temp. [K]
     ds['theta_es'] = theta_es_from_t_p_q(ds)  # Satur. equiv. pot. temp. [K]
-    ds['w_ms'] = w_from_omega(ds)      # Vertical velocity [m/s]
-    ds['wspd'] = windspeed(ds)         # Total scalar wind speed [m/s]
-    ds['N_m'] = N_moist_squared(ds)    # Moist Brunt-Vaisala frequency [1/s^2]
+    ds['w_ms'] = w_from_omega(ds)  # Vertical velocity [m/s]
+    ds['wspd'] = windspeed(ds)  # Total scalar wind speed [m/s]
+    ds['N_m'] = N_moist_squared(ds)  # Moist Brunt-Vaisala frequency [1/s^2]
     return ds
