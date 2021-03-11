@@ -26,7 +26,7 @@
 #   steps we want to plot. It takes too long to calculate the data for diagonal
 #   cross-sections for all the time steps otherwise.
 # - write checks if input files are correct and contain the expected variables
-# - change the name of saved files: include info on which silice it is
+# - change the name of saved files: include info on which slice it is
 #
 ##############################################################################
 
