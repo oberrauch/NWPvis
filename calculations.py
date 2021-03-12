@@ -249,22 +249,39 @@ def w_from_omega(data):
 def T_lcl_from_T_rh(data):
     """Temperature at lifting condensation level (LCL)
 
-    Absolute temperature at the lifting condensation level according to
-    Bolton [1980], Eq. 22. Needs temperature [K] and relative humidity [%].
+    Calculate the absolute temperature at the lifting condensation level
+    following [Bolton 1980]_ Eq. 22.
 
     Parameters
     ----------
-    data : TYPE
-        DESCRIPTION.
+    data : xr.Dataset
+        dataset containing temperature [K] (data.t), and either relative
+        humidity [%] (data.rh) or pressure [Pa] (data.pressure) and mixing
+        ratio (data.q) in oder to compute the relative humidity
+
+    Returns
+    -------
+    T_lcl : xr.DataArray
+        absolute temperature [K] at the LCL
+
+    Notes
+    -----
+
+    The function follows Eq. 22 from [Bolton 1960]_ which reads
+
+    .. math:: T_{LCL} = \frac{1}{\frac{1}{T - 55} - \frac{\ln(RH/100)}{2840}}
+        + 55.
 
     """
 
-    # Calculate relative humidity if not in data
-    # TODO: ensure consistency
     if 'rh' not in data.keys():
-        data['rh'] = rh_from_t_q_p(data)
+        # Calculate relative humidity if not in data
+        rh = rh_from_t_q_p(data)
+    else:
+        rh = data['rh']
 
-    denominator = (1 / (data.t - 55)) + (np.log(data.rh / 100) / 2840)
+    # calculate temperature at lifiting condensation level
+    denominator = (1 / (data.t - 55)) + (np.log(rh * 1e-2) / 2840)
     T_lcl = 1 / denominator + 55
     return T_lcl
 

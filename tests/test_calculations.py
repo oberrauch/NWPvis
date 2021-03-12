@@ -156,4 +156,20 @@ class TestCalculations(TestCase):
         np.testing.assert_allclose(w_ms, -0.01, atol=0.001, rtol=0.1)
 
     def test_T_lcl_from_T_rh(self):
+        """Test calculation of the temperature at the lifting condensation
+        level (LCL)."""
+        # create dummy data containing temperature [K], relative humidity [%]
+        temp = 18. + constants.t_0
+        rh = 50.
+        # combine into dataset
+        ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
+                                   'rh': xr.DataArray(rh)})
+        # calculate temperature at LCL
+        temp_lcl = calculations.T_lcl_from_T_rh(ds)
+
+        # test against anayltical solution
+        temp_lcl_anal = 1 / (1 / (temp - 55) + np.log(rh * 1e-2) / 2840) + 55
+        np.testing.assert_allclose(temp_lcl, temp_lcl_anal)
+
+        # TODO: test against know values
         pass
