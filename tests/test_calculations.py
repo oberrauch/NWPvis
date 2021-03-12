@@ -51,6 +51,8 @@ class TestCalculations(TestCase):
         theta_anal = temp * (constants.p0 / p) ** (
                 constants.Rd / constants.c_p)
         np.testing.assert_allclose(theta, theta_anal)
+        # TODO test against known values
+        pass
 
     def test_N_dry_from_p_theta(self):
         # TODO
@@ -80,6 +82,9 @@ class TestCalculations(TestCase):
         ds = xr.Dataset(data_vars={'u': xr.DataArray(u),
                                    'v': xr.DataArray(v)})
 
+        # TODO test against known values
+        pass
+
     def test_es_from_t(self):
         """Test calculations of saturation water vapor pressure."""
         # create dummy data containing temperature [K]
@@ -93,7 +98,8 @@ class TestCalculations(TestCase):
         es_anal = 611.2 * np.exp(17.67 * (temp - constants.t_0)
                                  / (temp - 29.65))
         np.testing.assert_allclose(es, es_anal)
-        # TODO: test with demo file, compare results to fixed values ?!
+
+        # TODO test against known values
         pass
 
     def test_rh_from_t_q_p(self):
@@ -125,8 +131,29 @@ class TestCalculations(TestCase):
     def test_w_from_omega(self):
         """Test conversion of vertical wind speed with respect to pressure
         into that with respect to height."""
-        raise NotImplementedError
+        # create dummy data containing temperature [K], pressure [Pa], vertical
+        # wind speed in pressure coordinates [Pa/s] and relative humidity [%]
+        temp = 18. + constants.t_0
+        p = 1000e2
+        rh = 50.
+        omega = 100e2 / (24 * 3600)  # 100hPa/day
+        # combine into dataset
+        ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
+                                   'pressure': xr.DataArray(p),
+                                   'rh': xr.DataArray(rh),
+                                   'w': xr.DataArray(omega)})
+
+        # convert vertical wind speed into height coordinate
+        w_ms = calculations.w_from_omega(ds)
+
+        # test against analytical solution
+        es = 611.2 * np.exp(17.67 * (temp - constants.t_0) / (temp - 29.65))
+        e = rh * es * 1e-2
+        rho = (p - e) / (constants.Rd * temp) + e / (constants.Rvap * temp)
+        w_ms_anal = omega / (-rho * constants.g)
+        np.testing.assert_allclose(w_ms, w_ms_anal)
+        # test against rule of thumb for lower troposphere 100 hPa/day = 1 cm/s
+        np.testing.assert_allclose(w_ms, -0.01, atol=0.001, rtol=0.1)
 
     def test_T_lcl_from_T_rh(self):
-
         pass

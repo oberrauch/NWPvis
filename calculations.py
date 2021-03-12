@@ -242,7 +242,7 @@ def w_from_omega(data):
     rho = rho_dry + rho_water
 
     # Convert vertical wind speed from pressure to height coordinates
-    w_ms = -rho * g * data.w
+    w_ms = data.w / (-rho * g)
     return w_ms
 
 
