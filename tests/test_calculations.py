@@ -173,3 +173,28 @@ class TestCalculations(TestCase):
 
         # TODO: test against know values
         pass
+
+    def test_theta_e_from_t_p_q_Tlcl(self):
+        """..."""
+        # create dummy data containing temperature [K], relative humidity [%]
+        temp = 18. + constants.t_0
+        p = 1000e2
+        rh = 50.
+        q = 6e-3
+        # combine into dataset
+        ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
+                                   'pressure': xr.DataArray(p),
+                                   'rh': xr.DataArray(rh),
+                                   'q': xr.DataArray(q)})
+        # calculate equivalent potential temperature
+        theta_e = calculations.theta_e_from_t_p_q_Tlcl(ds)
+
+        # test against analytic solution
+        temp_lcl = 1 / (1 / (temp - 55) + np.log(rh * 1e-2) / 2840) + 55
+        exp1 = constants.Rd / constants.c_p * (1 - 0.28 * q)
+        exp2 = (3.376 / temp_lcl - 0.00254) * q * 1e3 * (1 + 0.81 * q)
+        theta_e_anal = temp * (constants.p0 / p) ** exp1 * np.exp(exp2)
+        np.testing.assert_allclose(theta_e, theta_e_anal)
+
+        # TODO: test against known value
+        pass

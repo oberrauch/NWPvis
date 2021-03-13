@@ -257,7 +257,7 @@ def T_lcl_from_T_rh(data):
     data : xr.Dataset
         dataset containing temperature [K] (data.t), and either relative
         humidity [%] (data.rh) or pressure [Pa] (data.pressure) and mixing
-        ratio (data.q) in oder to compute the relative humidity
+        ratio [kg/kg] (data.q)in oder to compute the relative humidity
 
     Returns
     -------
@@ -287,35 +287,46 @@ def T_lcl_from_T_rh(data):
 
 
 def theta_e_from_t_p_q_Tlcl(data):
-    """
-    Equivalent potential temperature according to Bolton [1980], Eq. 43.
-    Function of absolute temperature T [K], pressure p [Pa], mixing
-    ratio q [kg/kg] (q is called "r" in Bolton and has unist [g/kg], we have
-    [kg/kg]), and absolute temperature at the lifting condensation
-    level T_lcl [K].
+    """Equivalent potential temperature
+
+    Calculates equivalent potential temperature following Eq. 43 in
+    [Bolton 1980]_.
 
     Parameters
     ----------
     data : xr.Dataset
-        dataset
+        dataset containing temperature [K] (data.t), relative humidity [%]
+        (data.rh), pressure [Pa] (data.pressure) and mixing ratio [kg/kg]
+        (data.q)
 
     Returns
     -------
     theta_e : xr.DataArray
         Equivalent potential temperature
 
+    Notes
+    -----
+    Equation 43 in the conclusion of [Bolton 1980]_ reads
+
+    .. math:: \theta_e = T\left(\frac{1000~mathrm{hPa}}{p}\right)
+        ^{\frac{R_d}{c_p}(1-0.28q)}
+        \cdot \exp\left[\left(\fraq{3.376}{T_\text{LCL}} - 0.00254\right)
+            q(1+0.81q)\right].
+
+    Thereby, :math:`T` represents the absolute temperature [K], :math:`p` the
+    pressure [Pa], :math:`q` the mixing ratio [kg/kg] and :math:`T_\text{LCL}`
+    the the absolute temperature at the lifting condensation level [K].
+
     """
 
-    # Get T_lcl
+    # Calculate temperature at LCL
     T_lcl = T_lcl_from_T_rh(data)
 
-    # Define exponents
-    exp_1 = rcp * (1 - 0.28 * data.q)
-    exp_2 = (3.376 / T_lcl - 0.00254) * 1e3 * data.q * (1 + 0.81 * data.q)
-
-    # Get theta_e
-    theta_e = data.t * (p0 / data.pressure) ** exp_1 * np.exp(exp_2)
-
+    # Specify exponents for following equation
+    exp1 = Rd / c_p * (1 - 0.28 * data.q)
+    exp2 = (3.376 / T_lcl - 0.00254) * data.q * 1e3 * (1 + 0.81 * data.q)
+    # Calculate equivalent potential temperature
+    theta_e = data.t * (p0 / data.pressure) ** exp1 * np.exp(exp2)
     return theta_e
 
 
