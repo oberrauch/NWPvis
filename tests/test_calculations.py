@@ -175,7 +175,7 @@ class TestCalculations(TestCase):
         pass
 
     def test_theta_e_from_t_p_q_Tlcl(self):
-        """..."""
+        """Test calculation for equivalent potential temperature."""
         # create dummy data containing temperature [K], relative humidity [%]
         temp = 18. + constants.t_0
         p = 1000e2
@@ -198,3 +198,26 @@ class TestCalculations(TestCase):
 
         # TODO: test against known value
         pass
+
+    def test_theta_es_from_t_p_q(self):
+        """Test calculation for saturation equivalent potential temperature."""
+        # create dummy data containing temperature [K], relative humidity [%]
+        temp = 18. + constants.t_0
+        p = 1000e2
+        q = 6e-3
+        # combine into dataset
+        ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
+                                   'pressure': xr.DataArray(p),
+                                   'q': xr.DataArray(q)})
+        # calculate equivalent potential temperature
+        theta_es = calculations.theta_es_from_t_p_q(ds)
+
+        # test against analytic solution
+        exp1 = constants.Rd / constants.c_p * (1 - 0.28 * q)
+        exp2 = (3.376 / temp - 0.00254) * q * 1e3 * (1 + 0.81 * q)
+        theta_es_anal = temp * (constants.p0 / p) ** exp1 * np.exp(exp2)
+        np.testing.assert_allclose(theta_es, theta_es_anal)
+
+        # TODO: test against known value
+        pass
+
