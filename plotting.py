@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import cmocean.cm as cmo
 
 # local dependencies
-from constants import g, t_0
+from constants import G, TEMP_0
 
 
 # %% Plot topography: view of the topography and cross-sections from above
@@ -34,7 +34,7 @@ def plot_topography(ds):
     ax = plt.axes(projection=ccrs.PlateCarree())
 
     # plot topography (surface geopotential divided by g): shows dataset extent
-    topo = ds.z/g
+    topo = ds.z / G
     topo.plot(ax=ax, cmap='terrain', vmin=0)
     # add borders + coastline for easier orientation
     ax.add_feature(cfeature.BORDERS)
@@ -70,7 +70,7 @@ class Plot:
 
         self.lat = self.data.latitude.values
         self.lon = self.data.longitude.values
-        self.topo = self.data.z.values/g
+        self.topo = self.data.z.values / G
 
     def finish_figure_settings(self, varname):
         """
@@ -135,7 +135,7 @@ class Plot:
         """ Method to add theta contour lines to the plot"""
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
-                                    self.data.theta-t_0,
+                                    self.data.theta - TEMP_0,
                                     levels=np.arange(-60, 100, 4),
                                     colors=color,
                                     linewidths=0.7)
@@ -146,7 +146,7 @@ class Plot:
         """ Method to add theta_e contour lines to the plot"""
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
-                                    self.data.theta_e-t_0,
+                                    self.data.theta_e - TEMP_0,
                                     levels=np.arange(-60, 100, 4),
                                     colors=color,
                                     linewidths=0.7)
@@ -202,7 +202,7 @@ class Plot:
         """ Method to add the line of 0°C to the plot"""
         zero_temp_line = self.ax.contour(self.x,
                                          self.data.geopotential_height,
-                                         self.data.t-t_0,
+                                         self.data.t - TEMP_0,
                                          levels=[0],
                                          colors=color,
                                          linewidths=2)
@@ -271,7 +271,7 @@ class Temperature_plot(Plot):
     def plot_background(self):
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
-                               self.data.t - t_0,
+                               self.data.t - TEMP_0,
                                levels=20,
                                cmap=cmo.thermal,
                                extend='neither',

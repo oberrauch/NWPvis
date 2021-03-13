@@ -47,7 +47,7 @@ import requests
 import os
 
 # local dependencies
-from constants import g, Rd, Rvap
+from constants import G, R_DRY, R_WATER
 
 
 # %% MATH FROM THE ECMWF DOCUMENTATION
@@ -170,7 +170,7 @@ def get_geopotential(path, ds):
     all_a, all_b = get_model_level_definition(path)
 
     # Get virtual temperature
-    t_virtual = ds['t'] * (1 + (Rvap / Rd - 1.0) * ds['q'])
+    t_virtual = ds['t'] * (1 + (R_WATER / R_DRY - 1.0) * ds['q'])
 
     # Get pressure and alpha
     ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds,
@@ -192,7 +192,7 @@ def get_geopotential(path, ds):
         else:
             # get values for this iteration
             phi_k_plus_half = (phi_k_plus_one_and_half +
-                               (Rd * t_virtual.sel(level=k+1)) *
+                               (R_DRY * t_virtual.sel(level=k + 1)) *
                                np.log(pressure_ratio.sel(level=k+1)))
             # prepare values for next iteration
             phi_k_plus_one_and_half = phi_k_plus_half
@@ -201,13 +201,13 @@ def get_geopotential(path, ds):
         alpha_k = alpha.sel(level=k)
 
         # formula 2.22
-        phi_k = phi_k_plus_half + alpha_k * Rd * t_virtual_k
+        phi_k = phi_k_plus_half + alpha_k * R_DRY * t_virtual_k
 
         # save results
         ds['geopotential'].loc[dict(level=k)] = phi_k
 
     # Once geopotential is calculated, convert it to geopotential height
-    ds['geopotential_height'] = ds['geopotential'] / g
+    ds['geopotential_height'] = ds['geopotential'] / G
 
     # Add metadata
     ds.geopotential.attrs['units'] = 'm**2 s**-2'

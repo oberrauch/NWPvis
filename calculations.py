@@ -24,7 +24,8 @@ import numpy as np
 import pandas as pd
 
 # local imports
-from constants import g, t_0, p0, Rd, Rvap, c_p, c_l, rcp, gamma_d
+from constants import G, TEMP_0, PRESSURE_0, R_DRY, R_WATER, SPEC_CP_DRY, SPEC_CP_WATER, \
+     GAMMA_DRY
 
 
 # In the input files, we have the following variables:
@@ -72,7 +73,7 @@ def theta_from_t_p(data):
     theta : xr.DataArray
         potential temperature in Kelvin (for plotting)
     """
-    theta = data.t * (p0 / data.pressure) ** rcp
+    theta = data.t * (PRESSURE_0 / data.pressure) ** (R_DRY / SPEC_CP_DRY)
     return theta
 
 
@@ -87,7 +88,7 @@ def N_dry_from_p_theta(data):
     raise NotImplementedError
     theta = theta_from_t_p(data)
     theta_vertical_gradient = 1
-    brunt_vaisala_freq = np.sqrt(g / theta * theta_vertical_gradient)
+    brunt_vaisala_freq = np.sqrt(G / theta * theta_vertical_gradient)
     return brunt_vaisala_freq
 
 
@@ -143,7 +144,7 @@ def es_from_t(data):
 
     """
 
-    es = 611.2 * np.exp(17.67 * (data.t - t_0) / (data.t - 29.65))
+    es = 611.2 * np.exp(17.67 * (data.t - TEMP_0) / (data.t - 29.65))
     return es
 
 
@@ -241,12 +242,12 @@ def w_from_omega(data):
     e = rh * es_from_t(data) * 1e-2
 
     # Compute air density accounting for water vapor
-    rho_dry = (data.pressure - e) / (Rd * data.t)
-    rho_water = e / (Rvap * data.t)
+    rho_dry = (data.pressure - e) / (R_DRY * data.t)
+    rho_water = e / (R_WATER * data.t)
     rho = rho_dry + rho_water
 
     # Convert vertical wind speed from pressure to height coordinates
-    w_ms = data.w / (-rho * g)
+    w_ms = data.w / (-rho * G)
     return w_ms
 
 
@@ -327,10 +328,10 @@ def theta_e_from_t_p_q_Tlcl(data):
     T_lcl = T_lcl_from_T_rh(data)
 
     # Specify exponents for following equation
-    exp1 = Rd / c_p * (1 - 0.28 * data.q)
+    exp1 = R_DRY / SPEC_CP_DRY * (1 - 0.28 * data.q)
     exp2 = (3.376 / T_lcl - 0.00254) * data.q * 1e3 * (1 + 0.81 * data.q)
     # Calculate equivalent potential temperature
-    theta_e = data.t * (p0 / data.pressure) ** exp1 * np.exp(exp2)
+    theta_e = data.t * (PRESSURE_0 / data.pressure) ** exp1 * np.exp(exp2)
     return theta_e
 
 
@@ -369,10 +370,10 @@ def theta_es_from_t_p_q(data):
     """
 
     # Specify exponents for following equation
-    exp1 = Rd / c_p * (1 - 0.28 * data.q)
+    exp1 = R_DRY / SPEC_CP_DRY * (1 - 0.28 * data.q)
     exp2 = (3.376 / data.t - 0.00254) * data.q * 1e3 * (1 + 0.81 * data.q)
     # Calculate equivalent potential temperature
-    theta_e = data.t * (p0 / data.pressure) ** exp1 * np.exp(exp2)
+    theta_e = data.t * (PRESSURE_0 / data.pressure) ** exp1 * np.exp(exp2)
     return theta_e
 
 
@@ -415,16 +416,17 @@ def N_moist_squared(data):
     b = 1.35e7  # [K^2]
 
     # TODO: calculating gamma, use total water as well or just vapor?
-    gamma_m = gamma_d * (1 + (a * data.q / data.t)) / (
+    gamma_m = GAMMA_DRY * (1 + (a * data.q / data.t)) / (
             1 + (b * data.q / (data.t ** 2)))
 
     # numpy can't derive on a non-uniform meshgrid: get df and dz separately
-    df = np.gradient((c_p + c_l * r_tot) * np.log(data.theta_e), axis=0)
+    df = np.gradient(
+        (SPEC_CP_DRY + SPEC_CP_WATER * r_tot) * np.log(data.theta_e), axis=0)
     dz = np.gradient(data.geopotential_height, axis=0)
     dq = np.gradient(r_tot, axis=0)
 
     term_1 = gamma_m * (df / dz)
-    term_2 = (c_l * gamma_m * np.log(data.t) + g) * (dq / dz)
+    term_2 = (SPEC_CP_WATER * gamma_m * np.log(data.t) + G) * (dq / dz)
 
     frac = 1 / (1 + r_tot)
     N_m_squared = frac * (term_1 - term_2)
@@ -469,7 +471,6 @@ def bearing(lon0, lat0, lon1, lat1):
     [lon0, lat0, lon1, lat1] = np.deg2rad([lon0, lat0, lon1, lat1])
     # Compute longitudinal distance
     dLon = lon1 - lon0
-
 
     y = np.sin(dLon) * np.cos(lat1)
     x = np.cos(lat0) * np.sin(lat1) - np.sin(lat0) * np.cos(lat1) * np.cos(
