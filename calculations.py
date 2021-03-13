@@ -84,7 +84,11 @@ def N_dry_from_p_theta(data):
     # I want N_m
 
     # dry: N = sqrt(g/theta * d(theta)/dz)
-    return
+    raise NotImplementedError
+    theta = theta_from_t_p(data)
+    theta_vertical_gradient = 1
+    brunt_vaisala_freq = np.sqrt(g / theta * theta_vertical_gradient)
+    return brunt_vaisala_freq
 
 
 def windspeed(data):
@@ -373,8 +377,11 @@ def theta_es_from_t_p_q(data):
 
 
 def N_moist_squared(data):
-    """
-    Moist Brunt-Vaisala frequency. Based on Kirshbaum [2004] eq. 6, or
+    """Moist Brunt-Väisälä frequency
+
+    Calculates moist Brunt-Vaisala frequency [rad/s]
+
+    Based on Kirshbaum [2004] eq. 6, or
     Schreiner [2011], eq. 3.1. TODO REF
     Derivatives with numpy: central differences in the interior of the array,
     forward/backward differences at the boundary points
@@ -428,29 +435,41 @@ def N_moist_squared(data):
 # %% Rotation of wind coordinates
 
 def bearing(lon0, lat0, lon1, lat1):
-    """
-    Calculate the bearing angle (measured clockwise from the north direction)
-    in RADIANS. Used for re-calculating the wind direction in the transect
-    plane and in/out of page for the diagonal cross-sections.
+    """Bearing angle
+
+    Calculate the bearing angle [rad] between two positions given by coordinate
+    points. The bearing angle is measured clockwise from the north direction.
+    Used for re-calculating the wind direction in the transect plane and in/out
+    of page for the diagonal cross-sections.
 
     The diagonal cross-sections does NOT have a constant bearing - the first
-    point gives just an approximation.
+    point gives just an approximation. TODO: ask Betka
 
     Parameters
     ----------
-    lon0, lat0, lon1, lat1 : float
-        Location of the initial and final points of the cross-section
+    lon0 : float
+        Longitudinal position of start point in degrees west
+    lat0 : float
+        Latitudinal position of start point in degrees north
+    lon1 : float
+        Longitudinal position of end point in degrees west
+    lat1 : float
+        Latitudinal position of end point in degrees north
+        
 
     Returns
     -------
     bearing : float
-        bearing angle
+        bearing angle [rad] between start point (lon0, lat0) and end point
+        (lon1, lat1)
 
     """
 
-    # [lon0, lat0, lon1, lat1] = [5.5, 46.0, 17.3, 52.0]
+    # Convert degrees into radians
     [lon0, lat0, lon1, lat1] = np.deg2rad([lon0, lat0, lon1, lat1])
+    # Compute longitudinal distance
     dLon = lon1 - lon0
+
 
     y = np.sin(dLon) * np.cos(lat1)
     x = np.cos(lat0) * np.sin(lat1) - np.sin(lat0) * np.cos(lat1) * np.cos(

@@ -221,3 +221,19 @@ class TestCalculations(TestCase):
         # TODO: test against known value
         pass
 
+    def test_N_moist_squared(self):
+        """Test calculations of moist Brunt-Väisälä frequency."""
+        pass
+
+    def test_bearing(self):
+        """..."""
+        pass
+
+    def test_angle(self):
+        """..."""
+        pass
+
+    def test_diag_wind(self):
+        """..."""
+
+
