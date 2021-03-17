@@ -24,6 +24,7 @@
 #
 ##############################################################################
 
+# %% Import section
 
 # import: local dependencies
 from load_cut_nc_files import get_input_data
@@ -33,31 +34,29 @@ from load_cut_nc_files import slice_lat, slice_lon, slice_diag
 
 # definitions of plotting functions/classes
 from plotting import Wind_plot, Temperature_plot, RH_plot, \
-                     Stability_plot, Precipitation_plot
+    Stability_plot, Precipitation_plot
 from plotting import plot_topography
-
 
 # bool option to save all the produced figures (now used for )
 savefigs = False
-path_figs = '/home/alve/Desktop/NWPvis/figures/'
+path_figs = './figures/'
 
 # %% Load all data, get geopotential
 
 # path to netCDF files containing data for visualization
-PATH = '/home/alve/Desktop/NWPvis/data/'
+PATH = './data/'
 
-ML_DATA = PATH + 'ML.nc'                             # model level data
-SFC_LNSP = PATH + 'SFC_LNSP.nc'                      # log of surface pressure data
-GEOPOTENTIAL_DATA = PATH + 'topography_ml_vertX.nc'  # surface geopotential data
+ML_DATA = PATH + 'ML.nc'  # model level data
+SFC_LNSP = PATH + 'SFC_LNSP.nc'  # log of surface pressure data
+GEOPOTENTIAL_DATA = PATH + 'TOPO.nc'  # surface geopotential data
 
 # load all model data, combine into one dataset for convenience
-ds = get_input_data(filename_model_level=ML_DATA,
-                    filename_sfc_lnsp=SFC_LNSP,
-                    filename_sfc_geopotential=GEOPOTENTIAL_DATA)
+ds = get_input_data(path_model_level=ML_DATA,
+                    path_lnsp=SFC_LNSP,
+                    path_sfc_geopotential=GEOPOTENTIAL_DATA)
 
 # Calculate geopotential and pressure: do this BEFORE choosing slices!
 ds = get_geopotential(PATH, ds)
-
 
 # %% Choose data slices: add all variables to them
 
@@ -78,7 +77,6 @@ ds_lon = calculate_all_vars(ds_lon)
 plot_topo = False
 if plot_topo:
     fig, ax = plot_topography(ds)
-
 
 # %% Trial cross-section plotting: EXAMPLE CASES
 # uncomment whatever line(s) to get different examples
@@ -123,9 +121,9 @@ fig_rh, ax_rh = RH_plot(data_out).make_figure()
 
 if savefigs:
     time = str(data_out.time.dt.strftime("%Y%m%d_%H").values)
-    fig_t.savefig(path_figs+time+'_T.png',
+    fig_t.savefig(path_figs + time + '_T.png',
                   dpi=200, bbox_inches='tight', format='png')
-    fig_wind.savefig(path_figs+time+'_wspd.png',
+    fig_wind.savefig(path_figs + time + '_wspd.png',
                      dpi=200, bbox_inches='tight', format='png')
-    fig_rh.savefig(path_figs+time+'_RH.png',
+    fig_rh.savefig(path_figs + time + '_RH.png',
                    dpi=200, bbox_inches='tight', format='png')

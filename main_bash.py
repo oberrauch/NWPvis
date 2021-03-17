@@ -47,7 +47,7 @@ from plotting import plot_topography
 
 
 # bool option to save all the produced figures (now used for )
-savefigs = True
+savefigs = False
 
 # %% Load all data, get geopotential
 
@@ -59,9 +59,9 @@ GEOPOTENTIAL_DATA = sys.argv[3]     # surface geopotential data
 path_figs = sys.argv[4]             # path to save figures
 
 # load all model data, combine into one dataset for convenience
-ds = get_input_data(filename_model_level=ML_DATA,
-                    filename_sfc_lnsp=SFC_LNSP,
-                    filename_sfc_geopotential=GEOPOTENTIAL_DATA)
+ds = get_input_data(path_model_level=ML_DATA,
+                    path_lnsp=SFC_LNSP,
+                    path_sfc_geopotential=GEOPOTENTIAL_DATA)
 
 # Calculate geopotential and pressure: do this BEFORE choosing slices!
 ds = get_geopotential(os.getcwd(), ds)
@@ -70,8 +70,8 @@ ds = get_geopotential(os.getcwd(), ds)
 # %% Choose data slices: add all variables to them
 
 # slices along chosen latitudes/longitudes
-#   THESE ARE EXAMPLE VALUES: to be deterined which cross-sections are going to
-#   be "standardized" for the weather briefing
+#   THESE ARE EXAMPLE VALUES: to be determined which cross-sections are going
+#   to be "standardized" for the weather briefing
 ds_lat = slice_lat(ds, [46.0, 47.3, 48.0, 50.0])
 ds_lon = slice_lon(ds, [5.5, 6.6, 7.6, 11.4, 12.4, 13.3])
 

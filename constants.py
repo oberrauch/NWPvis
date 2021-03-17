@@ -37,3 +37,4 @@ PRESSURE_0 = 1e5  # [Pa] reference pressure (100 hPa)
 
 # Compute dry adiabatic lapse rate following [Stull 2011]_
 GAMMA_DRY = G / SPEC_CP_DRY  # [K/m] dry adiabatic lapse rate
+

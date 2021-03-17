@@ -1,30 +1,28 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""Import data
+
+This module has two functions:
+1. Load all the needed *.nc files, combine them into one dataset.
+   This makes it easier to work with the data later.
+   Inputs: ML_DATA, SFC_LNSP, GEOPOTENTIAL_DATA
+                   paths to netCDF4 files containing:
+                   1. temperature and humidity on
+                   model levels (contains other variables
+                   as well)
+                   2. logarithm of surface pressure
+                   3. surface geopotential
+2. Select slices of data to be visualized:
+   - along constant latitude
+   - along constant longitude
+   - along a defined diagonal
+   When slicing, some metadata is added to the created slices
+
+Author(s): Alzbeta Medvedova, Moritz Oberrauch
 
 
-##############################################################################
-#
-# Author : Alzbeta Medvedova
-#
-# This module has two functions:
-# 1. Load all the needed .nc files, combine them into one dataset.
-#    This makes it easier to work with the data later.
-#    Inputs: ML_DATA, SFC_LNSP, GEOPOTENTIAL_DATA
-#                    paths to netCDF4 files containing:
-#                    1. temperature and humidity on
-#                    model levels (contains other variables
-#                    as well)
-#                    2. logarithm of surface pressure
-#                    3. surface geopotential
-# 2. Select slices of data to be visualized:
-#    - along constant latitude
-#    - along constant longitude
-#    - along a defined diagonal
-#    When slicing, some metadata is added to the created slices
-#
-##############################################################################
 
+"""
 
+# external libraries
 import xarray as xr
 import numpy as np
 
@@ -32,80 +30,78 @@ import numpy as np
 from calculations import angle, diag_wind
 
 
-# %% Load and combine files into one dataset
+def get_input_data(path_sfc_geopotential=None,
+                   path_lnsp=None,
+                   path_model_level=None,
+                   path_all_data=None):
+    """
 
-def get_input_data(filename_model_level=None,
-                   filename_sfc_lnsp=None,
-                   filename_sfc_geopotential=None,
-                   filename_allData=None):
-    '''
-    Loading and combining .nc files needed for the visualizaton of vertical
-    cross-sections.
+    Loading the given *.nc files needed for the visualization of vertical
+    cross-sections and combining them into one dataset.
 
-    The minimum of four quantities is needed:
-        surface geopotential (z),
-        logarithm of surface pressure (lnsp),
-        temeprature (t) and
-        humidity (q)
-    at model levels.
-    This information can either be contained in one file (allData) or three
-    separate files (sfc_geopotential, sfc_lnsp, model_level).
+    The data file(s) must at least contain the following variables at all model
+    levels:
+    - surface geopotential (z)
+    - logarithm of surface pressure (lnsp)
+    - temperature (t)
+    - humidity/mixing ratio (q)
 
-    This function either loads three separate files and combines them into one
-    dataset, or loads one dataset containing all needed data.
+    This data can either be contained in one file (all_data) or three separate
+    files (sfc_geopotential, lnsp, model_level).
 
     Parameters
     ----------
-    filename_model_level : str
-        path to the .nc file containing data on model levels.
-    filename_sfc_lnsp : str
-        path to the .nc file containing log of sfc pressure.
-    filename_sfc_geopotential : str
-        path to the .nc file containing surface geopotential.
-    filename_allData : str
-        path to the .nc file containing all data.  The default is None.
+    path_model_level : str, optional
+        Path to the *.nc file containing data on model levels.
+    path_lnsp : str, optional
+        Path to the *.nc file containing log of sfc pressure.
+    path_sfc_geopotential : str, optional
+        Path to the *.nc file containing surface geopotential.
+    path_all_data : str, optional
+        Path to the *.nc file containing all data, overrides other paths.
         This is basically an artifact from the original version of the code
-        (J. Horak + D. Morgenstern) - if the data is always going to be
-        provided in three files, this can be removed.
+        (J. Horak + D. Morgenstern) and will be removed if the data is always
+        going to be provided in three files
 
     Raises
     ------
-    Exception
-        If files are not provided correctly (either one file with all needed
-        data or three separate files), an exception is raised.
+    ValueError
+        If files are not provided correctly, i.e., either one file with all
+        needed data or three separate files
 
     Returns
     -------
-    data_combined : xr.Dataset
+    data : xr.Dataset
         combined dataset containing all variables needed for
         further calculations
-    '''
+    """
 
-    # if one file with all data is provided, load this file
-    if filename_allData is not None:
-        data_combined = xr.open_dataset(filename_allData)
-    # if one file is not given, check if three data files are specified
-    elif any(x is None for x in [filename_model_level,
-                                 filename_sfc_lnsp,
-                                 filename_sfc_geopotential]):
-        raise Exception("Give path to data: either one file containing all"
-                        "data or three files containing parts of data.")
-    # if three files are all provided, load and combine them
+    if path_all_data is not None:
+        # if one file with all data is provided, load this file
+        data = xr.load_dataset(path_all_data)
+
+    elif any(x is None for x in [path_model_level,
+                                 path_lnsp,
+                                 path_sfc_geopotential]):
+        # raise an error if not all necessary files are provided
+        raise ValueError("Provide path to all necessary data files.")
+
     else:
-        tq = xr.open_dataset(filename_model_level)
-        ln_sp = xr.open_dataset(filename_sfc_lnsp)
-        # select only first time step to avoid time conflicts with other files
-        z = xr.open_dataset(filename_sfc_geopotential).isel(time=0)
+        # load all three files
+        model_level = xr.load_dataset(path_model_level)
+        lnsp = xr.load_dataset(path_lnsp)
+        sfc_geopotential = xr.load_dataset(path_sfc_geopotential)
+        # the model topography does not change, hence only one (the first) time
+        # step is necessary
+        z = sfc_geopotential.isel(time=0)
+        # combine them into one dataset
+        data = xr.merge([model_level, lnsp, z], join="exact")
 
-        data_combined = xr.merge([tq, ln_sp, z], join="exact")
+    return data
 
-    return data_combined
-
-
-# %% Select slices along various dimensions
 
 def slice_lat(ds, lats):
-    '''
+    """
     Selects a slice of data from the dataset along lines of constant latitude
 
     Parameters
@@ -120,7 +116,7 @@ def slice_lat(ds, lats):
     ds : xr.Dataset
         Subset of input data - selected slices to be visualized
 
-    '''
+    """
     # select slices
     ds_lat = ds.sel(latitude=lats, method='nearest').copy()
 
@@ -144,7 +140,7 @@ def slice_lat(ds, lats):
 
 
 def slice_lon(ds, lons):
-    '''
+    """
     Selects a slice of data from the dataset along lines of constant longitude
 
     Parameters
@@ -159,7 +155,7 @@ def slice_lon(ds, lons):
     ds : xr.Dataset
         Subset of input data - selected slices to be visualized
 
-    '''
+    """
     # select slices
     ds_lon = ds.sel(longitude=lons, method='nearest').copy()
 
@@ -181,7 +177,7 @@ def slice_lon(ds, lons):
 
 
 def slice_diag(ds, lon0, lat0, lon1, lat1):
-    '''
+    """
     Selects a slice of data from the dataset along a diagonal defined by two
     points - their longitude and latitude
 
@@ -198,7 +194,7 @@ def slice_diag(ds, lon0, lat0, lon1, lat1):
     ds : xr.Dataset
         a diagonal cross-section with a new dimension in the data
 
-    '''
+    """
     num = 100  # number of horizontal points for the diagonal cross-section
 
     # Make sure that longitude in the cross-sections always increases

@@ -39,7 +39,6 @@
 #
 ##############################################################################
 
-
 import pandas as pd
 import xarray as xr
 import numpy as np
@@ -83,56 +82,70 @@ from constants import G, R_DRY, R_WATER
 #  - at this point, we will have all tv and p calculated
 
 
-# %% FUNCTIONS FOR INPUT DATA
+# FUNCTIONS FOR INPUT DATA
 
-def get_model_level_definition(path):
-    '''
+def get_model_level_definition(dir_path=None):
+    """
+    TODO: decide if not just keeping this file and removing download routine
+
     Function loading the coefficients a, b needed for calculating pressure
     at half levels. If the file containing the coefficients does not exist yet,
     it will be downloaded.
 
     Parameters
     ----------
-    path : str
+    dir_path : str
         check it the pickle file containing the coefficients exists
         at this path - if not, download it from ECMWF and save
         as pickle (.pkl) to this path
 
     Returns
     -------
-    a, b : pd.Series
-        arrays containing the model coefficients
+    xr.DataArray
 
-    '''
+    """
 
-    level_definition_file = "ecmwf_ab_coeffs.pkl"
+    # specify path and filename
+    if not dir_path:
+        # use default path to data directory if not provided
+        package_dir, _ = os.path.split(__file__)
+        dir_path = os.path.join(package_dir, './data/')
+    file_name = "ecmwf_ab_coeffs.nc"
+    path = os.path.join(dir_path, file_name)
 
-    # If the file with coeffs does not exist in the file directory, download it
-    if level_definition_file in os.listdir(path):
-        download = False
-    else:
-        download = True
-
-    if download:
-        url = "https://www.ecmwf.int/en/forecasts/documentation-and-support/137-model-levels"
+    if not os.path.isfile(path):
+        # download file if necessary
+        url = "https://www.ecmwf.int/en/forecasts/" \
+              "documentation-and-support/137-model-levels"
+        # convert HTML table into a pandas DataFrame
         html = requests.get(url).content
-        L137ml_list = pd.read_html(html)
+        level_coef = pd.read_html(html, index_col=0)[0]
+        # select only constants A and B
+        level_coef = level_coef[['a [Pa]', 'b']]
+        # rename columns and index and convert into xarray DataArray
+        level_coef.index.name = 'level'
+        level_coef.rename(columns={'a [Pa]': 'A', 'b': 'B'}, inplace=True)
+        level_coef = level_coef.to_xarray()
+        # add meta data
+        level_coef.A.attrs['units'] = 'Pa'
+        level_coef.A.attrs['long_name'] = 'Coefficient A from the ECMWF ' \
+                                          'L137 model level definitions ' \
+                                          'to compute half-level pressures'
+        level_coef.B.attrs['units'] = '-'
+        level_coef.B.attrs['long_name'] = 'Coefficient B from the ECMWF ' \
+                                          'L137 model level definitions ' \
+                                          'to compute half-level pressures'
+        # store to file
+        level_coef.to_netcdf(path)
+    else:
+        # read from file
+        level_coef = xr.load_dataset(path)
 
-        L137ml_df = L137ml_list[0]
-        L137ml_df.to_pickle(os.path.join(path, level_definition_file))
-
-    levDef = pd.read_pickle(os.path.join(path, level_definition_file))
-    a = levDef['a [Pa]']
-    b = levDef['b']
-
-    # TODO: write checks to see if this process was successful
-    return a, b
-
-# %% Define functions for calculating
+    return level_coef
 
 
-def get_geopotential(path, ds):
-    '''
+def get_geopotential(ds, dir_path=None):
+    """
     Calculates pressure, geopotential, and geopotential height at all full
     model levels - to be used as vertical coordinates.
 
@@ -142,34 +155,40 @@ def get_geopotential(path, ds):
     Parameters
     ----------
     ds : xr.Dataset
-        Dataset that has to contain the following variables:
-            ln sfc pressure, temperature, rh, sfc geopotential (topography)
-        The data set is expected to be 4-dimensional:
-            time, level, latitude, longitude
+        Dataset containing the following variables for the dimensions time,
+        height (level) and longitude/latitude:
+        - logarithmic surface pressure (data.lnsp)
+        - temperature (data.t)
+        - mixing ratio (data.q)
+        - surface geopotential (topography)
+
+    dir_path : str, optional
+        path to data directory where file with model levels is stored, defaults
+        to './data/'
 
     Returns
     -------
     ds : xr.Dataset
         Same dataset, now containing also pressure, geopotential and
         geopotential height at all vertical levels
-    '''
+    """
 
     # TODO: rewrite code to be more flexible - check number of
     # dimensions, make it work with 3 dimensions as well
     # (if the files contain only one time step)?
 
     # Get max and min level values
-    level_max = ds.level.max().values  # sfc level: 137 in ECMWF
-    level_min = ds.level.min().values  # uppermost level in data
+    level_max = ds.level.max().values  # surface level
+    level_min = ds.level.min().values  # uppermost level
 
-    # Initialize an empty storage array for geopotential in the data set:
-    #   same shape and dimensions as other arrays (e.g. teperature)
+    # Add DataArray for geopotential with the same shape and dimensions
+    # as other variables (e.g., temperature) to the Dataset
     ds['geopotential'] = xr.DataArray(np.zeros(ds.t.shape), dims=ds.t.dims)
 
     # Get model level definitions. Either load data or download it.
-    all_a, all_b = get_model_level_definition(path)
+    all_a, all_b = get_model_level_definition(dir_path)
 
-    # Get virtual temperature
+    # Get virtual temperature TODO: make this a function in calculations
     t_virtual = ds['t'] * (1 + (R_WATER / R_DRY - 1.0) * ds['q'])
 
     # Get pressure and alpha
@@ -193,7 +212,7 @@ def get_geopotential(path, ds):
             # get values for this iteration
             phi_k_plus_half = (phi_k_plus_one_and_half +
                                (R_DRY * t_virtual.sel(level=k + 1)) *
-                               np.log(pressure_ratio.sel(level=k+1)))
+                               np.log(pressure_ratio.sel(level=k + 1)))
             # prepare values for next iteration
             phi_k_plus_one_and_half = phi_k_plus_half
 
@@ -206,7 +225,7 @@ def get_geopotential(path, ds):
         # save results
         ds['geopotential'].loc[dict(level=k)] = phi_k
 
-    # Once geopotential is calculated, convert it to geopotential height
+    # add geopotential height to dataset
     ds['geopotential_height'] = ds['geopotential'] / G
 
     # Add metadata
@@ -221,15 +240,15 @@ def get_geopotential(path, ds):
     return ds
 
 
-def get_pressure_and_alpha(ds, all_a, all_b):
-    '''
+def get_pressure_and_alpha(ds):
+    """
     Calculate pressure and alpha on full model levels based on Eqns. 2.11, 2.23
-    from the ECMWF documentation
+    from the ECMWF documentation TODO: add reference link
 
     Parameters
     ----------
     ds : xr.Dataset
-        needs to contain log of sfc pressure (lnsp)
+        dataset containing the logarithmic surface pressure (data.lnsp)
     a, b : pd.Series
         arrays with coefficients needed to calculate pressure on half levels
 
@@ -241,45 +260,47 @@ def get_pressure_and_alpha(ds, all_a, all_b):
         Defined at full levels, needed for geopotential calculation. Does
         NOT have to be calculated iteratively - use a vectorized calculation
     pressure_ratio: xr.DataArray
-        Ratio on pressures on galf-levels, needed for calculating
+        Ratio on pressures on half-levels, needed for calculating
         geopotential in Eq. 2.21:    p[k+1/2]/p[k-1/2]
-    '''
-    # Cut to size of other data: a and b coeffs on half levels
-    level_min = ds.level.min().values
-    a = all_a.values[level_min-1:]
-    b = all_b.values[level_min-1:]
 
-    # Get sfc pressure from log of sfc pressure
-    sp = np.exp(ds['lnsp']).values
+    Notes
+    -----
 
-    # Get pressure on all half levels: a + b*sp, change order of axis
-    # TODO: a nice way to reorder axis without hard-coded indices?
-    p_half_levels = (np.multiply.outer(a, np.ones(sp.shape)) +
-                     np.multiply.outer(b, sp)).transpose([1, 0, 2, 3])
+    The vertical model layers are defined by the pressure at the interfaces
+    between them. The pressure :math:`p_{k+1/2}` at those so called
+    'half-levels' is given by the following equation (see [ECMWF]_ Eq. 2.11):
 
-    p_minus = p_half_levels[:, 0:-1, :, :]
-    p_plus = p_half_levels[:, 1:, :, :]
+    .. math:: p_{k+1/2} = A_{k+1/2} + B_{k+1/2} \cdot p_s.
 
-    # Get pressure on full model levels
-    pressure = xr.DataArray((p_minus + p_plus)/2,
-                            dims=('time', 'level', 'latitude', 'longitude'),
-                            coords=[ds.time, ds.level,
-                                    ds.latitude, ds.longitude])
+    Thereby, :math:`A_{k+1/2}` and :math:`B_{k+1/2}` are constants, :math:`p_s`
+    represents the surface pressure field.
+
+    The pressure associated with each model level (i.e., at the middle of the
+    layer) is defined as the average between the lower and upper half-level.
+
+    .. math::  p_k = \frac{p_{k-1/2} + p_{k+1/2}}{2}
+
+    """
+    # Get coefficients to compute pressure at half levels
+    level_coef = get_model_level_definition()
+    # Get sfc pressure from logarithmic surface pressure
+    sfc_pressure = np.exp(ds['lnsp'])
+
+    # Compute pressure at all half levels
+    p_half_levels = p_plus = level_coef.A + level_coef.B * sfc_pressure
+    p_minus = p_half_levels.shift(level=1)
+    # Compute average between upper and lower half level
+    pressure = 0.5 * (p_plus + p_minus)
 
     # Get pressure ratio on full levels for use in alpha and Eq. 2.21
-    pressure_ratio = xr.DataArray(p_plus/p_minus,
-                                  dims=('time', 'level',
-                                        'latitude', 'longitude'),
-                                  coords=[ds.time, ds.level,
-                                          ds.latitude, ds.longitude])
+    pressure_ratio = (p_plus / p_minus)
 
-    # Get alpha on full model levels
-    dp = p_plus - p_minus
-    a_full_levels = 1 - (p_minus/dp * np.log(pressure_ratio))  # formula 2.23
-
-    alpha = xr.DataArray(a_full_levels,
-                         dims=('time', 'level', 'latitude', 'longitude'),
-                         coords=[ds.time, ds.level,
-                                 ds.latitude, ds.longitude])
+    # Calculate alpha from Eq. 2.23, needed to compute the full-level values of
+    # geopotential as in Eq. 2.22
+    delta_p = p_half_levels.diff(dim='level')
+    alpha = 1 - (p_half_levels.shift(level=1) / delta_p
+                 * np.log(pressure_ratio))
+    # set alpha at level 1 to ln(2)
+    alpha.loc[dict(level=1)] = np.log(2)
 
     return pressure, alpha, pressure_ratio

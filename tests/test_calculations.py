@@ -27,9 +27,9 @@ class TestCalculations(TestCase):
         sfc_geopot_path = os.path.join(dir_path, 'TOPO.nc')
 
         # load all model data and combine into one dataset
-        self.ds = get_input_data(filename_model_level=model_level_path,
-                                 filename_sfc_lnsp=sfc_lnsp_path,
-                                 filename_sfc_geopotential=sfc_geopot_path)
+        self.ds = get_input_data(path_model_level=model_level_path,
+                                 path_lnsp=sfc_lnsp_path,
+                                 path_sfc_geopotential=sfc_geopot_path)
 
     def tearDown(self):
         """Close dataset."""
