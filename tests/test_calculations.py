@@ -11,7 +11,7 @@ from unittest import TestCase
 
 # local imports
 from load_cut_nc_files import get_input_data
-import constants
+import constants as const
 import calculations
 
 
@@ -39,7 +39,7 @@ class TestCalculations(TestCase):
         """Test calculation of potential temperature."""
 
         # create dummy data containing temperature [K] and pressure [Pa]
-        temp = 15. + constants.TEMP_0
+        temp = 15. + const.TEMP_0
         p = 1025.0e2
         # combine into dataset
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
@@ -48,8 +48,8 @@ class TestCalculations(TestCase):
         theta = calculations.theta_from_t_p(ds)
 
         # test against analytic solution
-        theta_anal = temp * (constants.PRESSURE_0 / p) ** (
-                constants.R_DRY / constants.SPEC_CP_DRY)
+        theta_anal = temp * (const.PRESSURE_0 / p) ** (
+                const.R_DRY / const.SPEC_CP_DRY)
         np.testing.assert_allclose(theta, theta_anal)
         # TODO test against known values
         pass
@@ -85,17 +85,33 @@ class TestCalculations(TestCase):
         # TODO test against known values
         pass
 
+    def test_virtual_temperature(self):
+        """Test calculation of virtual temperature."""
+        # create dummy data containing temperature [K] and mixing ratio [kg/kg]
+        temp = 18. + const.TEMP_0
+        q = 6e-3
+        # combine into dataset
+        ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
+                                   'q': xr.DataArray(q)})
+        # compute virtual temperature
+        temp_virtual = calculations.virtual_temperature(ds)
+
+        # test against analytical solution
+        temp_virtual_anal = temp * (
+                    1 + (const.R_WATER / const.R_DRY - 1.0) * q)
+        np.testing.assert_allclose(temp_virtual, temp_virtual_anal)
+
     def test_es_from_t(self):
         """Test calculations of saturation water vapor pressure."""
         # create dummy data containing temperature [K]
-        temp = 15. + constants.TEMP_0
+        temp = 15. + const.TEMP_0
         # combine into dataset
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp)})
         # compute saturation water vapor pressure
         es = calculations.es_from_t(ds)
 
         # test against analytic solution
-        es_anal = 611.2 * np.exp(17.67 * (temp - constants.TEMP_0)
+        es_anal = 611.2 * np.exp(17.67 * (temp - const.TEMP_0)
                                  / (temp - 29.65))
         np.testing.assert_allclose(es, es_anal)
 
@@ -109,7 +125,7 @@ class TestCalculations(TestCase):
         """
         # create dummy data containing temperature [K], pressure [Pa] and
         # mixing ratio
-        temp = 18. + constants.TEMP_0
+        temp = 18. + const.TEMP_0
         p = 1000e2
         q = 6e-3
         # combine into dataset
@@ -120,7 +136,7 @@ class TestCalculations(TestCase):
         rh = calculations.rh_from_t_q_p(ds)
 
         # test against analytic solution
-        es = 611.2 * np.exp(17.67 * (temp - constants.TEMP_0)
+        es = 611.2 * np.exp(17.67 * (temp - const.TEMP_0)
                             / (temp - 29.65))
         qs = 0.622 * (es / (p - es))
         rh_anal = 100 * q / qs
@@ -133,7 +149,7 @@ class TestCalculations(TestCase):
         into that with respect to height."""
         # create dummy data containing temperature [K], pressure [Pa], vertical
         # wind speed in pressure coordinates [Pa/s] and relative humidity [%]
-        temp = 18. + constants.TEMP_0
+        temp = 18. + const.TEMP_0
         p = 1000e2
         rh = 50.
         omega = 100e2 / (24 * 3600)  # 100hPa/day
@@ -147,10 +163,10 @@ class TestCalculations(TestCase):
         w_ms = calculations.w_from_omega(ds)
 
         # test against analytical solution
-        es = 611.2 * np.exp(17.67 * (temp - constants.TEMP_0) / (temp - 29.65))
+        es = 611.2 * np.exp(17.67 * (temp - const.TEMP_0) / (temp - 29.65))
         e = rh * es * 1e-2
-        rho = (p - e) / (constants.R_DRY * temp) + e / (constants.R_WATER * temp)
-        w_ms_anal = omega / (-rho * constants.G)
+        rho = (p - e) / (const.R_DRY * temp) + e / (const.R_WATER * temp)
+        w_ms_anal = omega / (-rho * const.G)
         np.testing.assert_allclose(w_ms, w_ms_anal)
         # test against rule of thumb for lower troposphere 100 hPa/day = 1 cm/s
         np.testing.assert_allclose(w_ms, -0.01, atol=0.001, rtol=0.1)
@@ -159,7 +175,7 @@ class TestCalculations(TestCase):
         """Test calculation of the temperature at the lifting condensation
         level (LCL)."""
         # create dummy data containing temperature [K], relative humidity [%]
-        temp = 18. + constants.TEMP_0
+        temp = 18. + const.TEMP_0
         rh = 50.
         # combine into dataset
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
@@ -177,7 +193,7 @@ class TestCalculations(TestCase):
     def test_theta_e_from_t_p_q_Tlcl(self):
         """Test calculation for equivalent potential temperature."""
         # create dummy data containing temperature [K], relative humidity [%]
-        temp = 18. + constants.TEMP_0
+        temp = 18. + const.TEMP_0
         p = 1000e2
         rh = 50.
         q = 6e-3
@@ -191,9 +207,9 @@ class TestCalculations(TestCase):
 
         # test against analytic solution
         temp_lcl = 1 / (1 / (temp - 55) + np.log(rh * 1e-2) / 2840) + 55
-        exp1 = constants.R_DRY / constants.SPEC_CP_DRY * (1 - 0.28 * q)
+        exp1 = const.R_DRY / const.SPEC_CP_DRY * (1 - 0.28 * q)
         exp2 = (3.376 / temp_lcl - 0.00254) * q * 1e3 * (1 + 0.81 * q)
-        theta_e_anal = temp * (constants.PRESSURE_0 / p) ** exp1 * np.exp(exp2)
+        theta_e_anal = temp * (const.PRESSURE_0 / p) ** exp1 * np.exp(exp2)
         np.testing.assert_allclose(theta_e, theta_e_anal)
 
         # TODO: test against known value
@@ -202,7 +218,7 @@ class TestCalculations(TestCase):
     def test_theta_es_from_t_p_q(self):
         """Test calculation for saturation equivalent potential temperature."""
         # create dummy data containing temperature [K], relative humidity [%]
-        temp = 18. + constants.TEMP_0
+        temp = 18. + const.TEMP_0
         p = 1000e2
         q = 6e-3
         # combine into dataset
@@ -213,9 +229,9 @@ class TestCalculations(TestCase):
         theta_es = calculations.theta_es_from_t_p_q(ds)
 
         # test against analytic solution
-        exp1 = constants.R_DRY / constants.SPEC_CP_DRY * (1 - 0.28 * q)
+        exp1 = const.R_DRY / const.SPEC_CP_DRY * (1 - 0.28 * q)
         exp2 = (3.376 / temp - 0.00254) * q * 1e3 * (1 + 0.81 * q)
-        theta_es_anal = temp * (constants.PRESSURE_0 / p) ** exp1 * np.exp(exp2)
+        theta_es_anal = temp * (const.PRESSURE_0 / p) ** exp1 * np.exp(exp2)
         np.testing.assert_allclose(theta_es, theta_es_anal)
 
         # TODO: test against known value
@@ -244,4 +260,3 @@ class TestCalculations(TestCase):
         # TODO
         raise NotImplementedError
         pass
-

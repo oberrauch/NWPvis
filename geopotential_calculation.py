@@ -1,43 +1,35 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""Vertical coordinates
 
-##############################################################################
-#
-# Author : Alzbeta Medvedova
-#
-# This script calculates pressure and geopotential height on model levels of
-# a xr.Dataset.
-#
-# Based on the script of Johannes Horak and later by Deborah Morgenstern
-# Improvements and changes to their code:
-# - necessary data already combined into one dataset is provided to this script
-# - all possible calculations are vectorized (and therefore faster)
-# - the functions within this module can be easily called from other scripts
-# - all variables passed to functions directly, only constants are imported
-# - some TODOs are left here as suggested future improvements
-#
-#
-# All formulas are taken and referenced to IFS Documentation Cy41r1,
-# Part III: Dynamics and numerical procedures by ECMWF, May 2015:
-#
-# https://www.ecmwf.int/sites/default/files/elibrary/2015/9210-part-iii-dynamics-and-numerical-procedures.pdf
-#
-#
-# Inputs:
-# ds: xr.Dataset containing:
-#   1. temperature and humidity on model levels
-#      (optionally also other variables)
-#   2. logarithm of surface pressure
-#   3. surface geopotefinal
-# ecmwf_ab_coeffs.pkl (optional):
-#   pickle file containing level definitions a and b - can also be downloaded
-#   in this script if not yet available
-#
-# Output:
-# ds: xr.Dataset, which now contains also pressure fields, geopotential and
-#   geopotential height on all model levels
-#
-##############################################################################
+This script calculates pressure and geopotential height on full (and half)
+model levels of a xr.Dataset.
+
+TODO: finish/update this docstring.
+
+Based on the script of Johannes Horak and later by Deborah Morgenstern.
+
+Inputs:
+ds: xr.Dataset containing:
+  1. temperature and humidity on model levels
+     (optionally also other variables)
+  2. logarithm of surface pressure
+  3. surface geopotefinal
+ecmwf_ab_coeffs.pkl (optional):
+  pickle file containing level definitions a and b - can also be downloaded
+  in this script if not yet available
+
+Output:
+ds: xr.Dataset, which now contains also pressure fields, geopotential and
+  geopotential height on all model levels
+
+Author(s): Alzbeta Medvedova, Moritz Oberrauch
+
+References:
+ .. [ECMWF]: European Centre for Medium-Range Weather Forecasts, 2015, "IFS
+    DOCUMENTATION – Cy41r1 Operational implementation 12 May 2015, PART III:
+    DYNAMICS AND NUMERICAL PROCEDURES", Shinfield Park, Reading, RG2 9AX,
+    England, URL: https://www.ecmwf.int/node/9210, DOI: 10.21957/a3hkssbw
+
+"""
 
 import pandas as pd
 import xarray as xr
@@ -85,7 +77,8 @@ from constants import G, R_DRY, R_WATER
 # FUNCTIONS FOR INPUT DATA
 
 def get_model_level_definition(dir_path=None):
-    """
+    """Definition of model levels
+
     TODO: decide if not just keeping this file and removing download routine
 
     Function loading the coefficients a, b needed for calculating pressure
@@ -144,8 +137,81 @@ def get_model_level_definition(dir_path=None):
     return level_coef
 
 
-def get_geopotential(ds, dir_path=None):
+def get_pressure_and_alpha(ds):
+    """Pressure calculations
+
+    Calculate pressure, alpha on full model levels based on Eqns. 2.11, 2.23
+    from the [ECMWF]_ documentation.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        dataset containing the logarithmic surface pressure (data.lnsp)
+
+    Returns
+    -------
+    pressure : xr.DataArray
+        Pressure [Pa] on full model levels
+    alpha: xr.DataArray
+        Defined at full levels, needed for geopotential calculation
+    pressure_ratio: xr.DataArray
+        Ratio on pressures on half-levels, needed for calculating geopotential
+
+    Notes
+    -----
+
+    The vertical model layers are defined by the pressure at the interfaces
+    between them. The pressure :math:`p_{k+1/2}` at those so called
+    'half-levels' is given by the following equation (see [ECMWF]_ Eq. 2.11):
+
+    .. math:: p_{k+1/2} = A_{k+1/2} + B_{k+1/2} \cdot p_s.
+
+    Thereby, :math:`A_{k+1/2}` and :math:`B_{k+1/2}` are constants, :math:`p_s`
+    represents the surface pressure field.
+
+    The pressure associated with each model level (i.e., at the middle of the
+    layer) is defined as the average between the lower and upper half-level.
+
+    .. math::  p_k = \frac{p_{k-1/2} + p_{k+1/2}}{2}
+
+    For the calculation of the geopotential (Eq. 2.22) two more variables are
+    needed. The pressure ratio between the surrounding half levels
+    :math:`\frac{p_{k+1/2}}{p_{k-1/2}}` and the :math:`\alpha_k` coefficient
+
+    .. math:: \alpha_k = 1 - \frac{p_{k-1/2}}{\Delta{}p_{k}}
+        \ln\left(\frac{p_{k+1/2}}{p_{k-1/2}}\right)
+
+    for :math:`k>1` and :math:`\alpha_1 = \ln{}2`.
+
     """
+    # Get coefficients to compute pressure at half levels
+    level_coef = get_model_level_definition()
+    # Get sfc pressure from logarithmic surface pressure
+    sfc_pressure = np.exp(ds['lnsp'])
+
+    # Compute pressure at all half levels
+    p_half_levels = p_plus = level_coef.A + level_coef.B * sfc_pressure
+    p_minus = p_half_levels.shift(level=1)
+    # Compute average between upper and lower half level
+    pressure = 0.5 * (p_plus + p_minus)
+
+    # Get pressure ratio on full levels for use in alpha and Eq. 2.21
+    pressure_ratio = (p_plus / p_minus)
+
+    # Calculate alpha from Eq. 2.23, needed to compute the full-level values of
+    # geopotential as in Eq. 2.22
+    delta_p = p_half_levels.diff(dim='level')
+    alpha = 1 - (p_half_levels.shift(level=1) / delta_p
+                 * np.log(pressure_ratio))
+    # set alpha at level 1 to ln(2)
+    alpha.loc[dict(level=1)] = np.log(2)
+
+    return pressure, alpha, pressure_ratio
+
+
+def get_geopotential(ds, dir_path=None):
+    """Geopotential calculations
+
     Calculates pressure, geopotential, and geopotential height at all full
     model levels - to be used as vertical coordinates.
 
@@ -181,8 +247,8 @@ def get_geopotential(ds, dir_path=None):
     level_max = ds.level.max().values  # surface level
     level_min = ds.level.min().values  # uppermost level
 
-    # Add DataArray for geopotential with the same shape and dimensions
-    # as other variables (e.g., temperature) to the Dataset
+    # Add empty/dummy DataArray for geopotential with the same shape and
+    # dimensions as other variables (e.g., temperature) to the Dataset
     ds['geopotential'] = xr.DataArray(np.zeros(ds.t.shape), dims=ds.t.dims)
 
     # Get model level definitions. Either load data or download it.
@@ -238,73 +304,3 @@ def get_geopotential(ds, dir_path=None):
     ds.pressure.attrs['long_name'] = 'Pressure on full model levels'
 
     return ds
-
-
-def get_pressure_and_alpha(ds):
-    """Pressure calculations
-
-    Calculate pressure, alpha on full model levels based on Eqns. 2.11, 2.23
-    from the ECMWF documentation
-
-    Parameters
-    ----------
-    ds : xr.Dataset
-        dataset containing the logarithmic surface pressure (data.lnsp)
-
-    Returns
-    -------
-    pressure : xr.DataArray
-        Pressure [Pa] on full model levels
-    alpha: xr.DataArray
-        Defined at full levels, needed for geopotential calculation
-    pressure_ratio: xr.DataArray
-        Ratio on pressures on half-levels, needed for calculating geopotential
-
-    Notes
-    -----
-
-    The vertical model layers are defined by the pressure at the interfaces
-    between them. The pressure :math:`p_{k+1/2}` at those so called
-    'half-levels' is given by the following equation (see [ECMWF]_ Eq. 2.11):
-
-    .. math:: p_{k+1/2} = A_{k+1/2} + B_{k+1/2} \cdot p_s.
-
-    Thereby, :math:`A_{k+1/2}` and :math:`B_{k+1/2}` are constants, :math:`p_s`
-    represents the surface pressure field.
-
-    The pressure associated with each model level (i.e., at the middle of the
-    layer) is defined as the average between the lower and upper half-level.
-
-    .. math::  p_k = \frac{p_{k-1/2} + p_{k+1/2}}{2}
-
-    For the calculation of the geopotential (Eq. 2.22) two more variables are
-    needed. The pressure ratio between the surrounding half levels
-    :math:`\frac{p_{k+1/2}}{p_{k-1/2}}` and the :math:`\alpha_k` coefficient
-
-    .. math:: \alpha_k = 1 - \frac{p_{k-1/2}}{\Delta{}p_{k}}
-        \ln\left(\frac{p_{k+1/2}}{p_{k-1/2}}\right)
-
-    """
-    # Get coefficients to compute pressure at half levels
-    level_coef = get_model_level_definition()
-    # Get sfc pressure from logarithmic surface pressure
-    sfc_pressure = np.exp(ds['lnsp'])
-
-    # Compute pressure at all half levels
-    p_half_levels = p_plus = level_coef.A + level_coef.B * sfc_pressure
-    p_minus = p_half_levels.shift(level=1)
-    # Compute average between upper and lower half level
-    pressure = 0.5 * (p_plus + p_minus)
-
-    # Get pressure ratio on full levels for use in alpha and Eq. 2.21
-    pressure_ratio = (p_plus / p_minus)
-
-    # Calculate alpha from Eq. 2.23, needed to compute the full-level values of
-    # geopotential as in Eq. 2.22
-    delta_p = p_half_levels.diff(dim='level')
-    alpha = 1 - (p_half_levels.shift(level=1) / delta_p
-                 * np.log(pressure_ratio))
-    # set alpha at level 1 to ln(2)
-    alpha.loc[dict(level=1)] = np.log(2)
-
-    return pressure, alpha, pressure_ratio

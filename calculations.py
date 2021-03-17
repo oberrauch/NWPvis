@@ -3,6 +3,8 @@
 This module contains functions to calculate derived variables based on the
 variables originally contained in the loaded dataset.
 
+TODO: data.q is specific humidity and NOT mixing ratio
+
 Author(s): Alzbeta Medvedova, Moritz Oberrauch
 
 References:
@@ -88,7 +90,7 @@ def N_dry_from_p_theta(data):
     raise NotImplementedError
     theta = theta_from_t_p(data)
     theta_vertical_gradient = 1
-    brunt_vaisala_freq = np.sqrt(G / theta * theta_vertical_gradient)
+    brunt_vaisala_freq = np.sqrt(const.G / theta * theta_vertical_gradient)
     return brunt_vaisala_freq
 
 
@@ -122,6 +124,51 @@ def windspeed(data):
 
 
 # %% MOIST THERMODYNAMICS
+
+def virtual_temperature(data):
+    """Virtual temperature
+
+    Calculate approximated virtual temperature following Eq. 3.16 [Hobbs 2006]_
+    from temperature and mixing ratio.
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        dataset containing temperature [K] (data.t) and mixing ratio [kg/kg]
+        (data.q)
+
+    Returns
+    -------
+    float:
+        approximated virtual temperature
+
+    Notes
+    -----
+    TODO: check if variables are consistent with rest
+
+    Virtual temperature accounts for water vapor when using the equation of
+    state for ideal gases with the gas constant for dry air :math:`R_d`.
+    Following [Hobbs 2006]_ it is defined as
+
+    .. math:: T_v = \frac{T}{1-\frac{e}{p}(1-\varepsilon)},
+
+    whereby :math:`T` is the air temperature, :math:`e` the partial pressure of
+    water vapor, :math:`p` the air pressure and :math:`\varepsilon = R_d/R_v`
+    the ratio between gas constant of dry air and water vapor.
+
+    The partial pressure of water vapor can be expressed as
+    .. math:: e = \frac{w}{w+\varepsilon}p.
+    Substituting this in the equation above, and neglecting all terms with
+    :math:`w^2` (or even higher orders) we get
+
+    .. math:: T_v \simeq T (1+(1/\varepsilon-1)w).
+
+
+    """
+
+    t_v = data['t'] * (1 + (const.R_WATER / const.R_DRY - 1.0) * data['q'])
+    return t_v
+
 
 def es_from_t(data):
     """Saturation pressure of water vapor
@@ -433,7 +480,7 @@ def N_moist_squared(data):
 
     term_1 = gamma_m * (df / dz)
     term_2 = (const.SPEC_CP_WATER * gamma_m * np.log(data.t) + const.G) * (
-                dq / dz)
+            dq / dz)
 
     frac = 1 / (1 + r_tot)
     N_m_squared = frac * (term_1 - term_2)
