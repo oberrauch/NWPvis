@@ -241,27 +241,24 @@ def get_geopotential(ds, dir_path=None):
 
 
 def get_pressure_and_alpha(ds):
-    """
-    Calculate pressure and alpha on full model levels based on Eqns. 2.11, 2.23
-    from the ECMWF documentation TODO: add reference link
+    """Pressure calculations
+
+    Calculate pressure, alpha on full model levels based on Eqns. 2.11, 2.23
+    from the ECMWF documentation
 
     Parameters
     ----------
     ds : xr.Dataset
         dataset containing the logarithmic surface pressure (data.lnsp)
-    a, b : pd.Series
-        arrays with coefficients needed to calculate pressure on half levels
 
     Returns
     -------
     pressure : xr.DataArray
         Pressure [Pa] on full model levels
     alpha: xr.DataArray
-        Defined at full levels, needed for geopotential calculation. Does
-        NOT have to be calculated iteratively - use a vectorized calculation
+        Defined at full levels, needed for geopotential calculation
     pressure_ratio: xr.DataArray
-        Ratio on pressures on half-levels, needed for calculating
-        geopotential in Eq. 2.21:    p[k+1/2]/p[k-1/2]
+        Ratio on pressures on half-levels, needed for calculating geopotential
 
     Notes
     -----
@@ -279,6 +276,13 @@ def get_pressure_and_alpha(ds):
     layer) is defined as the average between the lower and upper half-level.
 
     .. math::  p_k = \frac{p_{k-1/2} + p_{k+1/2}}{2}
+
+    For the calculation of the geopotential (Eq. 2.22) two more variables are
+    needed. The pressure ratio between the surrounding half levels
+    :math:`\frac{p_{k+1/2}}{p_{k-1/2}}` and the :math:`\alpha_k` coefficient
+
+    .. math:: \alpha_k = 1 - \frac{p_{k-1/2}}{\Delta{}p_{k}}
+        \ln\left(\frac{p_{k+1/2}}{p_{k-1/2}}\right)
 
     """
     # Get coefficients to compute pressure at half levels
