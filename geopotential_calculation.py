@@ -241,17 +241,16 @@ def get_geopotential(ds, dir_path=None):
         geopotential height at all vertical levels
     """
 
-    # TODO: rewrite code to be more flexible - check number of
-    # dimensions, make it work with 3 dimensions as well
-    # (if the files contain only one time step)?
-
     # Compute needed variables, add to dataset if needed for later
     temp_virtual = calculations.virtual_temperature(ds)
     ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds)
+    # reverse virtual temperature and pressure ratio along level coordinates
+    temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
+    pressure_ratio = pressure_ratio.reindex(level=pressure_ratio.level[::-1])
 
     # compute geopotential at half and full model levels
     geopot_half_level = ds.z + const.R_DRY * (
-                temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
+                 temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
     ds['geopotential'] = geopot_half_level + alpha * const.R_DRY * temp_virtual
 
     # add geopotential height to dataset
