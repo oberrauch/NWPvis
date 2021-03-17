@@ -38,7 +38,8 @@ import requests
 import os
 
 # local dependencies
-from constants import G, R_DRY, R_WATER
+import constants as const
+import calculations
 
 
 # %% MATH FROM THE ECMWF DOCUMENTATION
@@ -190,8 +191,9 @@ def get_pressure_and_alpha(ds):
     sfc_pressure = np.exp(ds['lnsp'])
 
     # Compute pressure at all half levels
-    p_half_levels = p_plus = level_coef.A + level_coef.B * sfc_pressure
-    p_minus = p_half_levels.shift(level=1)
+    p_half_levels = level_coef.A + level_coef.B * sfc_pressure
+    p_plus = p_half_levels.drop_sel(level=0)
+    p_minus = p_plus.shift(level=1)
     # Compute average between upper and lower half level
     pressure = 0.5 * (p_plus + p_minus)
 
@@ -201,7 +203,7 @@ def get_pressure_and_alpha(ds):
     # Calculate alpha from Eq. 2.23, needed to compute the full-level values of
     # geopotential as in Eq. 2.22
     delta_p = p_half_levels.diff(dim='level')
-    alpha = 1 - (p_half_levels.shift(level=1) / delta_p
+    alpha = 1 - (p_minus / delta_p
                  * np.log(pressure_ratio))
     # set alpha at level 1 to ln(2)
     alpha.loc[dict(level=1)] = np.log(2)
@@ -226,7 +228,7 @@ def get_geopotential(ds, dir_path=None):
         - logarithmic surface pressure (data.lnsp)
         - temperature (data.t)
         - mixing ratio (data.q)
-        - surface geopotential (topography)
+        - surface geopotential (data.z)
 
     dir_path : str, optional
         path to data directory where file with model levels is stored, defaults
@@ -243,56 +245,17 @@ def get_geopotential(ds, dir_path=None):
     # dimensions, make it work with 3 dimensions as well
     # (if the files contain only one time step)?
 
-    # Get max and min level values
-    level_max = ds.level.max().values  # surface level
-    level_min = ds.level.min().values  # uppermost level
+    # Compute needed variables, add to dataset if needed for later
+    temp_virtual = calculations.virtual_temperature(ds)
+    ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds)
 
-    # Add empty/dummy DataArray for geopotential with the same shape and
-    # dimensions as other variables (e.g., temperature) to the Dataset
-    ds['geopotential'] = xr.DataArray(np.zeros(ds.t.shape), dims=ds.t.dims)
-
-    # Get model level definitions. Either load data or download it.
-    all_a, all_b = get_model_level_definition(dir_path)
-
-    # Get virtual temperature TODO: make this a function in calculations
-    t_virtual = ds['t'] * (1 + (R_WATER / R_DRY - 1.0) * ds['q'])
-
-    # Get pressure and alpha
-    ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds,
-                                                                   all_a,
-                                                                   all_b)
-
-    # Calculate geopotential iteratively, starting at surface (level_max)
-    for k in range(level_max, level_min - 1, -1):
-
-        # at the surface, input geopotential is used
-        if k == level_max:
-
-            # get values for this iteration of for-loop
-            phi_k_plus_half = ds.z.values
-            # prepare values for next iteration
-            phi_k_plus_one_and_half = phi_k_plus_half
-
-        # for all other levels, phi at half level below has to be calculated
-        else:
-            # get values for this iteration
-            phi_k_plus_half = (phi_k_plus_one_and_half +
-                               (R_DRY * t_virtual.sel(level=k + 1)) *
-                               np.log(pressure_ratio.sel(level=k + 1)))
-            # prepare values for next iteration
-            phi_k_plus_one_and_half = phi_k_plus_half
-
-        t_virtual_k = t_virtual.sel(level=k)
-        alpha_k = alpha.sel(level=k)
-
-        # formula 2.22
-        phi_k = phi_k_plus_half + alpha_k * R_DRY * t_virtual_k
-
-        # save results
-        ds['geopotential'].loc[dict(level=k)] = phi_k
+    # compute geopotential at half and full model levels
+    geopot_half_level = ds.z + const.R_DRY * (
+                temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
+    ds['geopotential'] = geopot_half_level + alpha * const.R_DRY * temp_virtual
 
     # add geopotential height to dataset
-    ds['geopotential_height'] = ds['geopotential'] / G
+    ds['geopotential_height'] = ds['geopotential'] / const.G
 
     # Add metadata
     ds.geopotential.attrs['units'] = 'm**2 s**-2'
