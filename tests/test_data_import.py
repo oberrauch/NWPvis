@@ -12,7 +12,7 @@ from unittest import TestCase
 from data_import import get_input_data, slice_lat, slice_lon, slice_diag
 
 
-class TestCalculations(TestCase):
+class TestDataImport(TestCase):
 
     def setUp(self):
         """Load test data."""

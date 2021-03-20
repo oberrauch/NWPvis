@@ -104,13 +104,13 @@ def get_model_level_definition(dir_path=None):
         # use default path to data directory if not provided
         package_dir, _ = os.path.split(__file__)
         dir_path = os.path.join(package_dir, './data/')
-    file_name = "ecmwf_ab_coeffs.nc"
+    file_name = 'ecmwf_ab_coeffs.nc'
     path = os.path.join(dir_path, file_name)
 
     if not os.path.isfile(path):
         # download file if necessary
-        url = "https://www.ecmwf.int/en/forecasts/" \
-              "documentation-and-support/137-model-levels"
+        url = 'https://www.ecmwf.int/en/forecasts/' \
+              'documentation-and-support/137-model-levels'
         # convert HTML table into a pandas DataFrame
         html = requests.get(url).content
         level_coef = pd.read_html(html, index_col=0)[0]
