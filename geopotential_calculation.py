@@ -83,15 +83,15 @@ def get_model_level_definition(dir_path=None):
     TODO: decide if not just keeping this file and removing download routine
 
     Function loading the coefficients a, b needed for calculating pressure
-    at half levels. If the file containing the coefficients does not exist yet,
-    it will be downloaded.
+    at half levels. If the file containing ecmwf_ab_coeffs.nc the coefficients
+    does not exist yet, it will be downloaded and stored. The directory where
+    the file should be (or will be saved) can be provided, default is ./data/
 
     Parameters
     ----------
-    dir_path : str
-        check it the pickle file containing the coefficients exists
-        at this path - if not, download it from ECMWF and save
-        as pickle (.pkl) to this path
+    dir_path : str, optional
+        path to directory where the file should be (or will be saved),
+        defaults to ./data/
 
     Returns
     -------
@@ -138,7 +138,7 @@ def get_model_level_definition(dir_path=None):
     return level_coef
 
 
-def get_pressure_and_alpha(ds):
+def get_pressure_and_alpha(ds, dir_path=None):
     """Pressure calculations
 
     Calculate pressure, alpha on full model levels based on Eqns. 2.11, 2.23
@@ -148,6 +148,10 @@ def get_pressure_and_alpha(ds):
     ----------
     ds : xr.Dataset
         dataset containing the logarithmic surface pressure (data.lnsp)
+
+    dir_path : str, optional
+        path to directory where the file should be (or will be saved),
+        defaults to ./data/
 
     Returns
     -------
@@ -186,7 +190,7 @@ def get_pressure_and_alpha(ds):
 
     """
     # Get coefficients to compute pressure at half levels
-    level_coef = get_model_level_definition()
+    level_coef = get_model_level_definition(dir_path)
     # Get sfc pressure from logarithmic surface pressure
     sfc_pressure = np.exp(ds['lnsp'])
 
@@ -231,8 +235,8 @@ def get_geopotential(ds, dir_path=None):
         - surface geopotential (data.z)
 
     dir_path : str, optional
-        path to data directory where file with model levels is stored, defaults
-        to './data/'
+        path to directory where the file should be (or will be saved),
+        defaults to ./data/
 
     Returns
     -------
@@ -243,14 +247,15 @@ def get_geopotential(ds, dir_path=None):
 
     # Compute needed variables, add to dataset if needed for later
     temp_virtual = calculations.virtual_temperature(ds)
-    ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds)
+    ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds,
+                                                                   dir_path)
     # reverse virtual temperature and pressure ratio along level coordinates
     temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
     pressure_ratio = pressure_ratio.reindex(level=pressure_ratio.level[::-1])
 
     # compute geopotential at half and full model levels
     geopot_half_level = ds.z + const.R_DRY * (
-                 temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
+            temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
     ds['geopotential'] = geopot_half_level + alpha * const.R_DRY * temp_virtual
 
     # add geopotential height to dataset

@@ -101,26 +101,29 @@ def get_input_data(path_sfc_geopotential=None,
 
 
 def slice_lat(ds, lats):
-    """
-    Selects a slice of data from the dataset along lines of constant latitude
+    """Slice along latitudes
+
+    Selects data from the dataset along given lines of constant latitude and
+    add properties for plots. The selection allows is done using the nearest
+    neighbor lookup. TODO: add maximum tolerance?!
 
     Parameters
     ----------
     ds : xr.Dataset
         Dataset to be sliced
-    lats : list
-        List of latitiude values which we want to keep for plotting
+    lats : array-like
+        List of latitudes as float
 
     Returns
     -------
     ds : xr.Dataset
-        Subset of input data - selected slices to be visualized
+        Subset of input data
 
     """
-    # select slices
-    ds_lat = ds.sel(latitude=lats, method='nearest').copy()
+    # subset dataset
+    ds_lat = ds.sel(latitude=lats, method='nearest').copy(deep=True)
 
-    # add metadata: x-axis properties and title
+    # add metadata for plots: x-axis properties and title
     ds_lat.attrs['x_mesh'] = np.tile(ds.longitude, (len(ds.level), 1))
     ds_lat.attrs['x_axis'] = ds.longitude
     ds_lat.attrs['x_ticklabels'] = ds.longitude
@@ -130,36 +133,39 @@ def slice_lat(ds, lats):
     # used for filling the title text later
     ds_lat.attrs['cross_section_style'] = 'straight'
 
-    # determine which wind is transect or perpendicular
-    # E/W wind:
+    # specify transect and perpendicular wind
     ds_lat['transect_wind'] = ds_lat.u
     # S/N wind - minus sign to make southerly (out of page) positive:
+    # TODO: does this hold true for southern hemisphere?!
     ds_lat['perp_wind'] = -1*ds_lat.v
 
     return ds_lat
 
 
 def slice_lon(ds, lons):
-    """
-    Selects a slice of data from the dataset along lines of constant longitude
+    """Slice along longitudes
+
+    Selects data from the dataset along given lines of constant longitudes and
+    add properties for plots. The selection allows is done using the nearest
+    neighbor lookup. TODO: add maximum tolerance?!
 
     Parameters
     ----------
     ds : xr.Dataset
         Dataset to be sliced
-    lons : list
-        List of longitiude values which we want to keep for plotting
+    lons : array-like
+        List of latitudes as float
 
     Returns
     -------
     ds : xr.Dataset
-        Subset of input data - selected slices to be visualized
+        Subset of input data
 
     """
-    # select slices
-    ds_lon = ds.sel(longitude=lons, method='nearest').copy()
+    # subset dataset
+    ds_lon = ds.sel(longitude=lons, method='nearest').copy(deep=True)
 
-    # add metadata: x-axis properties and title
+    # add metadata for plots: x-axis properties and title
     ds_lon.attrs['x_mesh'] = np.tile(ds.latitude, (len(ds.level), 1))
     ds_lon.attrs['x_axis'] = ds.latitude
     ds_lon.attrs['x_ticklabels'] = ds.latitude
@@ -169,9 +175,9 @@ def slice_lon(ds, lons):
     # used for filling the title text later
     ds_lon.attrs['cross_section_style'] = 'straight'
 
-    # determine which wind is transect or perpendicular
-    ds_lon['transect_wind'] = ds_lon.v  # E/W wind
-    ds_lon['perp_wind'] = ds_lon.u      # S/N wind
+    # specify transect and perpendicular wind
+    ds_lon['transect_wind'] = ds_lon.v
+    ds_lon['perp_wind'] = ds_lon.u
 
     return ds_lon
 
