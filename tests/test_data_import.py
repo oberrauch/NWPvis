@@ -6,7 +6,6 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
-import itertools
 from unittest import TestCase
 
 # local imports
@@ -39,11 +38,9 @@ class TestCalculations(TestCase):
     def test_get_input_data(self):
         """Test data file imports, only the three file method."""
         # test loaded dataset against know dataset
-        ds_test = xr.load_dataset('../data/test_data/test_ds.nc')
-        assert self.ds.equals(ds_test)
-
-        # close datasets
-        ds_test.close()
+        test_ds = xr.load_dataset('../data/test_data/test_ds.nc')
+        xr.testing.assert_allclose(self.ds, test_ds)
+        test_ds.close()
 
     def test_slice_lat(self):
         """Test data slicing along fixed latitudes."""
@@ -52,9 +49,19 @@ class TestCalculations(TestCase):
         lat_ds = slice_lat(self.ds, lats)
 
         # test if given latitude was selected
-        print(lat_ds.latitude, lats)
         np.testing.assert_allclose(lat_ds.latitude, lats, atol=0.05)
-        # TODO: test against test dataset, look at attributes first
+
+        # load and slice test dataset
+        test_ds = xr.load_dataset('../data/test_data/test_ds.nc')
+        test_ds = test_ds.sel(latitude=lats,
+                              method='nearest',
+                              tolerance=0.05)
+        # add transect and perpendicular wind
+        test_ds['transect_wind'] = test_ds.u
+        test_ds['perp_wind'] = -test_ds.v
+        # test agains test dataset, disregard attributes
+        xr.testing.assert_equal(lat_ds, test_ds)
+        test_ds.close()
 
     def test_slice_lon(self):
         """Test data slicing along fixed longitudes."""
@@ -64,9 +71,19 @@ class TestCalculations(TestCase):
 
         # test if given latitude was selected
         np.testing.assert_allclose(lon_ds.longitude, lons, atol=0.05)
-        # TODO: test against test dataset, look at attributes first
+
+        # load and slice test dataset
+        test_ds = xr.load_dataset('../data/test_data/test_ds.nc')
+        test_ds = test_ds.sel(longitude=lons,
+                              method='nearest',
+                              tolerance=0.05)
+        # add transect and perpendicular wind
+        test_ds['perp_wind'] = test_ds.u
+        test_ds['transect_wind'] = test_ds.v
+        # test against test dataset, disregard attributes
+        xr.testing.assert_equal(lon_ds, test_ds)
+        test_ds.close()
 
     def test_slice_diag(self):
         """Test diagonal data slicing."""
         raise NotImplementedError
-
