@@ -35,10 +35,10 @@ import os
 import sys
 
 # import: local dependencies
-from load_cut_nc_files import get_input_data
-from geopotential_calculation import get_geopotential
+from data_import import get_input_data
+from vertical_coordinates import get_geopotential
 from calculations import calculate_all_vars
-from load_cut_nc_files import slice_lat, slice_lon, slice_diag
+from data_import import slice_lat, slice_lon, slice_diag
 
 # definitions of plotting functions/classes
 from plotting import Wind_plot, Temperature_plot, RH_plot, \

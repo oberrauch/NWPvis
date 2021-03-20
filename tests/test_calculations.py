@@ -10,7 +10,7 @@ import itertools
 from unittest import TestCase
 
 # local imports
-from load_cut_nc_files import get_input_data
+from data_import import get_input_data
 import constants as const
 import calculations
 

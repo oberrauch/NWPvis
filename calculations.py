@@ -80,7 +80,7 @@ def theta_from_t_p(data):
 
 
 def N_dry_from_p_theta(data):
-    # TODO
+    # TODO: implement if needed
     # Calculate Brunt Vaisala frequency... need T, p or something?
     # What do I need here? MetPY has sigma... What's sigma?
     # sigma = -RT/p * d(ln theta)/dp... huh?
@@ -432,6 +432,8 @@ def theta_es_from_t_p_q(data):
 def N_moist_squared(data):
     """Moist Brunt-Väisälä frequency
 
+    TODO: not look at yet
+
     Calculates moist Brunt-Vaisala frequency [rad/s]
 
     Based on Kirshbaum [2004] eq. 6, or
@@ -493,6 +495,8 @@ def N_moist_squared(data):
 def bearing(lon0, lat0, lon1, lat1):
     """Bearing angle
 
+    TODO: not look at yet
+
     Calculate the bearing angle [rad] between two positions given by coordinate
     points. The bearing angle is measured clockwise from the north direction.
     Used for re-calculating the wind direction in the transect plane and in/out
@@ -546,6 +550,8 @@ def bearing(lon0, lat0, lon1, lat1):
 
 def angle(lon0, lat0, lon1, lat1):
     """
+    TODO: not look at yet
+
     Calculate the angle (measured clockwise from the north direction)
     in RADIANS. Used for re-calculating the wind direction in the transect
     plane and in/out of page for the diagonal cross-sections.
@@ -587,6 +593,8 @@ def angle(lon0, lat0, lon1, lat1):
 
 def diag_wind(u, v, angle):
     """
+    TODO: not look at yet
+
     Calculates the transect/perpendicular wind components for diagonal
     cross-sections, based on the angle
 
@@ -618,6 +626,8 @@ def diag_wind(u, v, angle):
 
 def calculate_all_vars(ds):
     """
+    TODO: not look at yet
+
     A function to add all the derived variables to the original input dataset
 
     Parameters

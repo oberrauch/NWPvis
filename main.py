@@ -27,10 +27,10 @@
 # %% Import section
 
 # import: local dependencies
-from load_cut_nc_files import get_input_data
-from geopotential_calculation import get_geopotential
+from data_import import get_input_data
+from vertical_coordinates import get_geopotential
 from calculations import calculate_all_vars
-from load_cut_nc_files import slice_lat, slice_lon, slice_diag
+from data_import import slice_lat, slice_lon, slice_diag
 
 # definitions of plotting functions/classes
 from plotting import Wind_plot, Temperature_plot, RH_plot, \
@@ -61,8 +61,8 @@ ds = get_geopotential(PATH, ds)
 # %% Choose data slices: add all variables to them
 
 # slices along chosen latitudes/longitudes
-#   THESE ARE EXAMPLE VALUES: to be deterined which cross-sections are going to
-#   be "standardized" for the weather briefing
+# THESE ARE EXAMPLE VALUES: to be determined which cross-sections are going to
+# be "standardized" for the weather briefing
 ds_lat = slice_lat(ds, [46.0, 47.3, 48.0, 50.0])
 ds_lon = slice_lon(ds, [5.5, 6.6, 7.6, 11.4, 12.4, 13.3])
 
@@ -70,7 +70,7 @@ ds_lon = slice_lon(ds, [5.5, 6.6, 7.6, 11.4, 12.4, 13.3])
 ds_lat = calculate_all_vars(ds_lat)
 ds_lon = calculate_all_vars(ds_lon)
 
-# %% Plot top view of where the cross-sections are now
+# Plot top view of where the cross-sections are now
 # this is useful for visualizing where the cross-sections are
 # values of the plotted lines must be chosen directly in the function
 
