@@ -654,5 +654,5 @@ def calculate_all_vars(ds):
     ds['theta_es'] = theta_es_from_t_p_q(ds)  # Satur. equiv. pot. temp. [K]
     ds['w_ms'] = w_from_omega(ds)  # Vertical velocity [m/s]
     ds['wspd'] = windspeed(ds)  # Total scalar wind speed [m/s]
-    ds['N_m'] = N_moist_squared(ds)  # Moist Brunt-Vaisala frequency [1/s^2]
+    # ds['N_m'] = N_moist_squared(ds)  # Moist Brunt-Vaisala frequency [1/s^2]
     return ds

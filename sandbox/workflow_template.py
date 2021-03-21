@@ -50,6 +50,8 @@ ds_slices['lons'] = data_import.slice_lon(ds, lons)
 # compute vertical coordinates
 for i in ds_slices:
     ds_slices[i] = vertical_coordinates.get_geopotential(ds_slices[i])
+    ds_slices[i] = calculations.calculate_all_vars(ds_slices[i])
+
 
 # select a single latitude and time step
 data_out = ds_slices['lats'].sel(latitude=47.3, method='nearest').isel(time=2)

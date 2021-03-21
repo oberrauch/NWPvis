@@ -83,6 +83,9 @@ class Plot:
         self.lon = self.data.longitude.values
         self.topo = self.data.z.values / G
 
+        # initiate figure
+        self.fig, self.ax = plt.subplots()
+
     def finish_figure_settings(self, varname):
         """
         - Adds topography to the vertical cross-section
@@ -250,8 +253,6 @@ class Wind_plot(Plot):
 
     # Specify which other variables should be overlaid on the plot
     def make_figure(self):
-        # initiate figure
-        self.fig, self.ax = plt.subplots()
         # plot background and its colorbar
         self.plot_background()
         # add theta contours
@@ -277,45 +278,6 @@ class Temperature_plot(Plot):
 
     # Class attributes: specific for wind plot
     varname = 'temperature'
-    units = '[deg C]'
-
-    # Background specific for the temperature figure
-    def plot_background(self):
-        bcg = xr.plot.contourf((self.data.t - TEMP_0),
-                               ax=self.ax,
-                               levels=20,
-                               cmap=cmo.thermal,
-                               extend='neither',
-                               alpha=0.9,
-                               antialiased=True,
-                               add_colorbar=False)
-
-        cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
-                           fontsize=14)
-
-    # Specify which other variables should be overlaid on the plot
-    def make_figure(self):
-        # initiate figure
-        self.fig, self.ax = plt.subplots()
-        # plot background and its colorbar
-        self.plot_background()
-        # finish figure layout settings and labels
-        # self.finish_figure_settings(self.varname)
-        # add figure explanation below
-        self.fig.tight_layout()
-        ax_loc = self.fig.axes[0].get_position()
-        figtext = 'ECMWF forecast: temperature [C, shading], 0°C line (blue), wind [m/s, vectors (transect plane), black \ncontours (full lines out of page, dashed into the page)], potential temperature [C, white contours]'
-        self.fig.text(ax_loc.xmin, 0.00, figtext,
-                      ha='left', va='top', fontsize=12, wrap=True)
-        return self.fig, self.ax
-
-
-class Temperature_plot_original(Plot):
-    """ Inherits methods and attributes from the 'Plot' class """
-
-    # Class attributes: specific for wind plot
-    varname = 'temperature'
     units = '[K]'
 
     # Background specific for the temperature figure
@@ -336,8 +298,6 @@ class Temperature_plot_original(Plot):
 
     # Specify which other variables should be overlaid on the plot
     def make_figure(self):
-        # initiate figure
-        self.fig, self.ax = plt.subplots()
         # plot background and its colorbar
         self.plot_background()
         # add theta contours
@@ -385,8 +345,6 @@ class RH_plot(Plot):
 
     # Specify which other variables should be overlaid on the plot
     def make_figure(self):
-        # initiate figure
-        self.fig, self.ax = plt.subplots()
         # plot background and its colorbar
         self.plot_background()
         # add theta contours
@@ -432,8 +390,6 @@ class Stability_plot(Plot):
 
     # Specify which other variables should be overlaid on the plot
     def make_figure(self):
-        # initiate figure
-        self.fig, self.ax = plt.subplots()
         # plot background and its colorbar
         self.plot_background()
         # add theta contours
@@ -495,8 +451,6 @@ class Precipitation_plot(Plot):
 
     # Specify which other variables should be overlaid on the plot
     def make_figure(self):
-        # initiate figure
-        self.fig, self.ax = plt.subplots()
         # plot background and its colorbar
         self.plot_suspended_water_ice()
         # add theta contours

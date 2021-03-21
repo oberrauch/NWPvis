@@ -259,7 +259,7 @@ def get_geopotential(ds, dir_path=None):
             temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
     # reverse level coordinates again for consistency
     geopot_half_level = geopot_half_level.reindex(
-        level=geopot_half_level.level[::-1])
+        level=geopot_half_level.level[::-1]).transpose()
     temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
 
     # compute geopotential at full model levels and add to dataset
