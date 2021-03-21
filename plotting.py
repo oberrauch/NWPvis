@@ -14,6 +14,7 @@
 # numerical libraries
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 # plotting libraries
 import cartopy.feature as cfeature
@@ -28,8 +29,18 @@ from constants import G, TEMP_0
 # %% Plot topography: view of the topography and cross-sections from above
 
 def plot_topography(ds):
+    """ TODO: why are these values fixed?!?!?
+
+    Parameters
+    ----------
+    ds
+
+    Returns
+    -------
+
+    """
     # initiate figure
-    fig, ax = plt.subplots(figsize=[12, 8],)
+    fig, ax = plt.subplots(figsize=[12, 8], )
     # change axis projection
     ax = plt.axes(projection=ccrs.PlateCarree())
 
@@ -45,9 +56,9 @@ def plot_topography(ds):
               xmin=ds.longitude.min(),
               xmax=ds.longitude.max(),
               colors='r')
-    # add lines of cconstant longitude (position of IBK)
+    # add lines of constant longitude (position of IBK)
     ax.vlines(x=[11.4],
-              ymin=ds.latitude.min()-2.5,
+              ymin=ds.latitude.min() - 2.5,
               ymax=ds.latitude.max(),
               colors='r')
     # add diagonal lines, calculated to cross through IBK
@@ -109,16 +120,17 @@ class Plot:
         # figure title: add new empty line for text with dates + time
         self.ax.set_title(self.title, fontsize=16)
 
-        it = self.data.init_time                    # Initial time of model run
+        it = self.data.init_time  # Initial time of model run
         ft = pd.to_datetime(self.data.time.values)  # Figure time
-        dt = int((ft - it).seconds / 3600)          # Time difference [h]
+        dt = int((ft - it).seconds / 3600)  # Time difference [h]
 
         # Figure texts: e.g. 00 UTC Run: 2000JAN01 +12...
         txt_left = (str(it.hour).zfill(2) + ' UTC Run: ' +
-                    str(it.year)+it.month_name()[0:3].upper()+str(it.day) +
+                    str(it.year) + it.month_name()[0:3].upper() + str(it.day) +
                     '  +' + str(dt))
         txt_right = (ft.day_name()[0:3] + ' ' +
-                     str(ft.year)+ft.month_name()[0:3].upper()+str(ft.day) +
+                     str(ft.year) + ft.month_name()[0:3].upper() + str(
+                    ft.day) +
                      ' ' + str(ft.hour).zfill(2) + ' UTC')
 
         self.ax.text(0.0, 1.01, txt_left, ha='left',
@@ -170,10 +182,10 @@ class Plot:
         page_plane = self.data.transect_wind[::py, ::px]
 
         # quiver plot: arrows in the transect plane
-        q = self.ax.quiver(x, z,            # plotting coords: meshgrid
-                           page_plane, w,   # x- and y- components of vectors
+        q = self.ax.quiver(x, z,  # plotting coords: meshgrid
+                           page_plane, w,  # x- and y- components of vectors
                            # pivot='mid',   # arrows anchored in their midpoint
-                           color='black',   # color of arrows
+                           color='black',  # color of arrows
                            width=0.002)
         # "legend" for the quiver plot
         self.ax.quiverkey(q, 1.08, 1.01, 20, label='20 m/s', labelpos='N')
@@ -194,7 +206,7 @@ class Plot:
                                       levels=np.arange(-200, 200, 5),
                                       linewidths=1,
                                       colors='k')
-        windcontour.monochrome = True   # Makes negative values dashed
+        windcontour.monochrome = True  # Makes negative values dashed
         windcontour.clabel(fmt='%1.0f', fontsize=12)
         return
 
@@ -232,7 +244,7 @@ class Wind_plot(Plot):
                                antialiased=True)
 
         cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize()+' '+self.units,
+        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
                            fontsize=14)
         return
 
@@ -265,6 +277,45 @@ class Temperature_plot(Plot):
 
     # Class attributes: specific for wind plot
     varname = 'temperature'
+    units = '[deg C]'
+
+    # Background specific for the temperature figure
+    def plot_background(self):
+        bcg = xr.plot.contourf((self.data.t - TEMP_0),
+                               ax=self.ax,
+                               levels=20,
+                               cmap=cmo.thermal,
+                               extend='neither',
+                               alpha=0.9,
+                               antialiased=True,
+                               add_colorbar=False)
+
+        cbar = self.fig.colorbar(bcg)
+        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
+                           fontsize=14)
+
+    # Specify which other variables should be overlaid on the plot
+    def make_figure(self):
+        # initiate figure
+        self.fig, self.ax = plt.subplots()
+        # plot background and its colorbar
+        self.plot_background()
+        # finish figure layout settings and labels
+        # self.finish_figure_settings(self.varname)
+        # add figure explanation below
+        self.fig.tight_layout()
+        ax_loc = self.fig.axes[0].get_position()
+        figtext = 'ECMWF forecast: temperature [C, shading], 0°C line (blue), wind [m/s, vectors (transect plane), black \ncontours (full lines out of page, dashed into the page)], potential temperature [C, white contours]'
+        self.fig.text(ax_loc.xmin, 0.00, figtext,
+                      ha='left', va='top', fontsize=12, wrap=True)
+        return self.fig, self.ax
+
+
+class Temperature_plot_original(Plot):
+    """ Inherits methods and attributes from the 'Plot' class """
+
+    # Class attributes: specific for wind plot
+    varname = 'temperature'
     units = '[K]'
 
     # Background specific for the temperature figure
@@ -279,7 +330,7 @@ class Temperature_plot(Plot):
                                antialiased=True)
 
         cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize()+' '+self.units,
+        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
                            fontsize=14)
         return
 
@@ -328,7 +379,7 @@ class RH_plot(Plot):
                                antialiased=True)
 
         cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize()+' '+self.units,
+        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
                            fontsize=14)
         return
 
@@ -376,7 +427,7 @@ class Stability_plot(Plot):
                                antialiased=True)
 
         cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel('$N_m^2$'+' '+self.units, fontsize=14)
+        cbar.ax.set_ylabel('$N_m^2$' + ' ' + self.units, fontsize=14)
         return
 
     # Specify which other variables should be overlaid on the plot
@@ -419,7 +470,7 @@ class Precipitation_plot(Plot):
         water = self.ax.contourf(self.x,
                                  self.data.geopotential_height,
                                  self.data.clwc,
-                                 levels=np.array([0.05, 0.1, 0.2, 0.5])*1e-3,
+                                 levels=np.array([0.05, 0.1, 0.2, 0.5]) * 1e-3,
                                  cmap='Greys',
                                  extend='max',
                                  alpha=0.8,
@@ -428,7 +479,7 @@ class Precipitation_plot(Plot):
         ice = self.ax.contourf(self.x,
                                self.data.geopotential_height,
                                self.data.ciwc,
-                               levels=np.array([0.05, 0.1, 0.2, 0.5])*1e-3,
+                               levels=np.array([0.05, 0.1, 0.2, 0.5]) * 1e-3,
                                cmap='Blues',
                                extend='max',
                                alpha=0.8,
@@ -438,7 +489,7 @@ class Precipitation_plot(Plot):
         # to make more space for the figure itself
         cbar_w = self.fig.colorbar(water)
         cbar_i = self.fig.colorbar(ice).set_ticks([])
-        cbar_w.ax.set_ylabel(self.varname.capitalize()+' '+self.units,
+        cbar_w.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
                              fontsize=14)
         return
 

@@ -23,7 +23,7 @@ class TestCalculations(TestCase):
         # specify path to files
         dir_path = '../data/'
         model_level_path = os.path.join(dir_path, 'ML.nc')
-        sfc_lnsp_path = os.path.join(dir_path, 'SFC_LNSP.nc')
+        sfc_lnsp_path = os.path.join(dir_path, 'LNSP.nc')
         sfc_geopot_path = os.path.join(dir_path, 'TOPO.nc')
 
         # load all model data and combine into one dataset

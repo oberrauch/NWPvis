@@ -11,7 +11,7 @@ PATH_FIGS='/home/alve/Desktop/NWPvis/figures/'
 # Model level data
 ML_DATA="${PATH_DATA}/ML.nc"
 # Logarithm of surface pressure
-SFC_LNSP="${PATH_DATA}/SFC_LNSP.nc"
+SFC_LNSP="${PATH_DATA}/LNSP.nc"
 # Surface geopotential data
 Z_DATA="${PATH_DATA}/TOPO.nc"
 

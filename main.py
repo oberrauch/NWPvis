@@ -47,7 +47,7 @@ path_figs = './figures/'
 PATH = './data/'
 
 ML_DATA = PATH + 'ML.nc'  # model level data
-SFC_LNSP = PATH + 'SFC_LNSP.nc'  # log of surface pressure data
+SFC_LNSP = PATH + 'LNSP.nc'  # log of surface pressure data
 GEOPOTENTIAL_DATA = PATH + 'TOPO.nc'  # surface geopotential data
 
 # load all model data, combine into one dataset for convenience
@@ -56,7 +56,7 @@ ds = get_input_data(path_model_level=ML_DATA,
                     path_sfc_geopotential=GEOPOTENTIAL_DATA)
 
 # Calculate geopotential and pressure: do this BEFORE choosing slices!
-ds = get_geopotential(PATH, ds)
+ds = get_geopotential(ds, PATH)
 
 # %% Choose data slices: add all variables to them
 
@@ -74,7 +74,7 @@ ds_lon = calculate_all_vars(ds_lon)
 # this is useful for visualizing where the cross-sections are
 # values of the plotted lines must be chosen directly in the function
 
-plot_topo = False
+plot_topo = True
 if plot_topo:
     fig, ax = plot_topography(ds)
 

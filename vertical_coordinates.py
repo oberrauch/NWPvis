@@ -250,12 +250,19 @@ def get_geopotential(ds, dir_path=None):
     ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds,
                                                                    dir_path)
     # reverse virtual temperature and pressure ratio along level coordinates
+    # in order to use the cumulative sum function on the dataset
     temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
     pressure_ratio = pressure_ratio.reindex(level=pressure_ratio.level[::-1])
 
-    # compute geopotential at half and full model levels
+    # compute geopotential at half levels
     geopot_half_level = ds.z + const.R_DRY * (
             temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
+    # reverse level coordinates again for consistency
+    geopot_half_level = geopot_half_level.reindex(
+        level=geopot_half_level.level[::-1])
+    temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
+
+    # compute geopotential at full model levels and add to dataset
     ds['geopotential'] = geopot_half_level + alpha * const.R_DRY * temp_virtual
 
     # add geopotential height to dataset
