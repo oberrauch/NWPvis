@@ -8,7 +8,7 @@ product of this project: the plots of vertical cross-sections.
 
 """
 
-# numerical libraries
+# external libraries
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -60,13 +60,22 @@ def plot_topography(ds):
 
 
 class ProfilePlot:
-    """TODO: write doc string
-    Defines features that can be added to all plots and customized
-    as needed
+    """Parent class for all plot of vertical cross sections.
+
+    An ProfilePlot object is instanced with an xarray Dataset, containing the
+    data to be plotted. It has methods to plot the following parameters:
+    - contour lines of potential temperature
+    - contour lines of equivalent potential temperature
+    - quiver field of transect wind (i.e., along the cross section)
+    - contour lines of perpendicular wind (i.e., into/out of the cross section)
+    - altitude line of 0 degC temperature (as contours, hence can be multiple)
+    Additionally, it has a method which takes care of all other plot elements
+    (i.e., adding a title, labels, caption, etc.) to finalize the figure.
     """
 
     def __init__(self, data):
-        """Each plot must be initialized with a xarray Dataset.
+        """Each plot must be initialized with a xarray Dataset, containing the
+        data to be plotted.
 
         Parameters
         ----------
@@ -76,9 +85,9 @@ class ProfilePlot:
         # store data as instance attribute
         self.data = data
         # compute mesh grids and define other axis properties
-        # TODO: decide whether to move to plots or leave in slices
         self.x = data.x_mesh
 
+        # store coordinates of latitude, longitude and topography as attributes
         self.lat = self.data.latitude.values
         self.lon = self.data.longitude.values
         self.topo = self.data.z.values / constants.G
@@ -87,16 +96,16 @@ class ProfilePlot:
         self.title = ''
 
         # initiate figure
-        self.fig, self.ax = plt.subplots()
+        figsize = (12, 8)
+        self.fig, self.ax = plt.subplots(figsize=figsize)
 
-    def finish_figure_settings(self, varname):
-        """Method to finalize the figure after plotting selected variables.
-
-        - Adding topography to the vertical cross-section
+    def finish_figure_settings(self):
+        """Finalize the figure after plotting selected variables by:
+        - Plotting the topography to the vertical cross-section
         - Adding title, axes labels, x-ticks and x-tick labels
         - Setting axes limits
-        - Adding additional information as text, like time since model run
-
+        - Adding additional information as text, like time since model run,
+            figure caption, etc.
         """
         # plot topography
         self.ax.fill_between(self.data.x_axis, self.topo, 0, color='k')
@@ -107,47 +116,51 @@ class ProfilePlot:
             self.ax.set_xticks(self.data.x_axis[::11])
             self.ax.set_xticklabels(self.data.x_ticklabels[::11], rotation=20)
             # title format
-            self.title = self.data.title.format(varname)
+            self.title = self.data.title.format(self.varname)
         elif self.data.cross_section_style == 'straight':
             # title format
             if "Latitude" in self.data.xlab:
-                self.title = self.data.title.format(varname,
+                self.title = self.data.title.format(self.varname,
                                                     self.data.longitude.values)
             elif "Longitude" in self.data.xlab:
-                self.title = self.data.title.format(varname,
+                self.title = self.data.title.format(self.varname,
                                                     self.data.latitude.values)
 
-        # x-axis settings: x-label
+        # axes labels
         self.ax.set_xlabel(self.data.xlab, fontsize=14)
-
-        # y-axis settings: y-label and axis limits
         self.ax.set_ylabel('Altitude [m]', fontsize=14)
+        # set limit y-axis to 0 and 12 km
         self.ax.set_ylim(0, 12000)
 
         # figure title: add new empty line for text with dates + time
         self.ax.set_title(self.title, fontsize=16)
 
-        it = self.data.init_time  # Initial time of model run
-        ft = pd.to_datetime(self.data.time.values)  # Figure time
-        dt = int((ft - it).seconds / 3600)  # Time difference [h]
+        # Compute different timestamps and time differences
+        # Initial time of model run
+        it = self.data.init_time
+        # Current time of the given dataset (figure time)
+        ft = pd.to_datetime(self.data.time.values)
+        # Compute time difference between run time and figure time in hours
+        dt = int((ft - it).seconds / 3600)
 
-        # Figure texts: e.g. 00 UTC Run: 2000JAN01 +12...
+        # Format timestamps for plot
+        # Initial time and date of model run + time difference on the left
+        # e.g., 00 UTC Run: 2000JAN01 +12
         txt_left = (str(it.hour).zfill(2) + ' UTC Run: ' +
                     str(it.year) + it.month_name()[0:3].upper() + str(it.day) +
                     '  +' + str(dt))
+        # Date and time of the given dataset on the right
+        # e.g., Sat 2000JAN01 12 UTC
         txt_right = (ft.day_name()[0:3] + ' ' +
                      str(ft.year) + ft.month_name()[0:3].upper() + str(
                     ft.day) +
                      ' ' + str(ft.hour).zfill(2) + ' UTC')
 
+        # add timestamps to the plot
         self.ax.text(0.0, 1.01, txt_left, ha='left',
                      fontsize=14, transform=self.ax.transAxes)
         self.ax.text(1.0, 1.01, txt_right, ha='right',
                      fontsize=14, transform=self.ax.transAxes)
-
-        # set figure size
-        self.fig.set_figwidth(12)
-        self.fig.set_figheight(8)
 
     def plot_theta_contours(self, color='k'):
         """Plot contour lines of potential temperature in degC. TODO: unit?!"""
@@ -255,7 +268,7 @@ class WindProfilePlot(ProfilePlot):
         # plot contour lines of perpendicular wind
         self.plot_perpendicular_wind_contour()
         # finish figure layout settings and labels
-        self.finish_figure_settings(self.varname)
+        self.finish_figure_settings()
 
         # add figure caption below
         self.fig.tight_layout()
@@ -303,7 +316,7 @@ class TemperatureProfilePlot(ProfilePlot):
         self.plot_zero_degree_line(color='blue')
 
         # finish figure layout settings and labels
-        self.finish_figure_settings(self.varname)
+        self.finish_figure_settings()
         # add figure caption below
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
@@ -349,7 +362,7 @@ class RhProfilePlot(ProfilePlot):
         self.plot_perpendicular_wind_contour()
 
         # finish figure layout settings and labels
-        self.finish_figure_settings(self.varname)
+        self.finish_figure_settings()
         # add figure caption below
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
@@ -396,7 +409,7 @@ class StabilityProfilePlot(ProfilePlot):
         self.plot_perpendicular_wind_contour()
 
         # finish figure layout settings and labels
-        self.finish_figure_settings(self.varname)
+        self.finish_figure_settings()
         # TODO: add figure explanation/caption
 
 
@@ -455,5 +468,5 @@ class PrecipitationProfilePlot(ProfilePlot):
         # add zero temperature line
         self.plot_zero_degree_line(color='blue')
         # finish figure layout settings and labels
-        self.finish_figure_settings(self.varname)
+        self.finish_figure_settings()
         return self.fig, self.ax
