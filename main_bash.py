@@ -41,7 +41,7 @@ from calculations import calculate_all_vars
 from data_import import slice_lat, slice_lon, slice_diag
 
 # definitions of plotting functions/classes
-from plotting import WindProfilePlot, TemperatureProfilePlot, RHProfilePlot, \
+from plotting import WindProfilePlot, TemperatureProfilePlot, RhProfilePlot, \
                      StabilityProfilePlot, PrecipitationProfilePlot
 from plotting import plot_topography
 
@@ -125,7 +125,7 @@ data_out = ds_lat.sel(latitude=47.3, method='nearest').isel(time=2)
 
 fig_t, ax_t = TemperatureProfilePlot(data_out).make_figure()
 fig_wind, ax_wind = WindProfilePlot(data_out).make_figure()
-fig_rh, ax_rh = RHProfilePlot(data_out).make_figure()
+fig_rh, ax_rh = RhProfilePlot(data_out).make_figure()
 # fig_prcp, ax_prcp = PrecipitationProfilePlot(data_out).make_figure()
 # fig_Nm, axNm = StabilityProfilePlot(data_out, meshgrid, axis).make_figure()
 

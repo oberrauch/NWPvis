@@ -1,15 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""
 
-##############################################################################
-#
-# Author : Alzbeta Medvedova
-#
-# This script contains functions and classes necessary to create the final
-# product of this project: the plots of vertical cross-sections.
-#
-##############################################################################
+Author : Alzbeta Medvedova
 
+This script contains functions and classes necessary to create the final
+product of this project: the plots of vertical cross-sections.
+
+
+"""
 
 # numerical libraries
 import numpy as np
@@ -27,18 +24,16 @@ import constants
 
 
 def plot_topography(ds):
-    """ TODO: why are these values fixed?!?!?
+    """ TODO: why are these values fixed?!?!? I see, for showcase purposes...
+    This function must be made more flexible or deleted entirely.
 
     Parameters
     ----------
     ds
 
-    Returns
-    -------
-
     """
     # initiate figure
-    fig, ax = plt.subplots(figsize=[12, 8], )
+    fig, ax = plt.subplots(figsize=[12, 8])
     # change axis projection
     ax = plt.axes(projection=ccrs.PlateCarree())
 
@@ -62,8 +57,6 @@ def plot_topography(ds):
     # add diagonal lines, calculated to cross through IBK
     ax.plot([5.5, 17.3], [42.6, 52.0], color='r')
     ax.plot([5.5, 17.3], [52.0, 42.6], color='r')
-
-    return fig, ax
 
 
 class ProfilePlot:
@@ -224,11 +217,9 @@ class ProfilePlot:
         zero_temp_line = self.ax.contour(self.x,
                                          self.data.geopotential_height,
                                          self.data.t - constants.TEMP_0,
-                                         levels=[0],
+                                         levels=[0.0],
                                          colors=color,
                                          linewidths=2)
-        # # add label
-        # zero_temp_line.clabel(fmt='%1.0f', fontsize=12)
 
 
 class WindProfilePlot(ProfilePlot):
@@ -268,7 +259,6 @@ class WindProfilePlot(ProfilePlot):
 
         # add figure caption below
         self.fig.tight_layout()
-        ax_loc = self.fig.axes[0].get_position()
         figtext = 'ECMWF forecast: wind speed [m/s, vectors (transect plane)' \
                   'and black contours (full lines out of page, \ndashed ' \
                   'into the page); shading (scalar wind speed)], potential ' \
@@ -278,14 +268,18 @@ class WindProfilePlot(ProfilePlot):
 
 
 class TemperatureProfilePlot(ProfilePlot):
-    """ Inherits methods and attributes from the 'ProfilePlot' class """
+    """TODO: finish docstring"""
 
     # Class attributes: specific for wind plot
     varname = 'temperature'
     units = '[K]'
 
-    # Background specific for the temperature figure
-    def plot_background(self):
+    def __init__(self, data):
+        """TODO: finish docstring"""
+        # initialize ProfilePlot parent class
+        super(TemperatureProfilePlot, self).__init__(data)
+
+        # Background specific for the temperature figure
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
                                self.data.t - constants.TEMP_0,
@@ -294,78 +288,77 @@ class TemperatureProfilePlot(ProfilePlot):
                                extend='neither',
                                alpha=0.9,
                                antialiased=True)
-
+        # add colorbar with label
         cbar = self.fig.colorbar(bcg)
         cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
                            fontsize=14)
-        return
 
-    # Specify which other variables should be overlaid on the plot
-    def make_figure(self):
-        # plot background and its colorbar
-        self.plot_background()
-        # add theta contours
+        # plot contour lines of potential temperature
         self.plot_theta_contours('white')
-        # add transect wind
+        # plot quiver field of transect wind
         self.plot_transect_wind_quivers()
-        # add out of page wind contours
+        # plot contour lines of perpendicular wind
         self.plot_perpendicular_wind_contour()
-        # add zero temperature line
+        # add zero degree temperature line
         self.plot_zero_degree_line(color='blue')
+
         # finish figure layout settings and labels
         self.finish_figure_settings(self.varname)
-        # add figure explanation below
+        # add figure caption below
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
-        figtext = 'ECMWF forecast: temperature [C, shading], 0°C line (blue), wind [m/s, vectors (transect plane), black \ncontours (full lines out of page, dashed into the page)], potential temperature [C, white contours]'
+        figtext = 'ECMWF forecast: temperature [C, shading], 0°C line ' \
+                  '(blue), wind [m/s, vectors (transect plane), black \n' \
+                  'contours (full lines out of page, dashed into the ' \
+                  'page)], potential temperature [C, white contours]'
         self.fig.text(ax_loc.xmin, 0.00, figtext,
                       ha='left', va='top', fontsize=12, wrap=True)
-        return self.fig, self.ax
 
 
-class RHProfilePlot(ProfilePlot):
-    """ Inherits methods and attributes from the 'ProfilePlot' class """
+class RhProfilePlot(ProfilePlot):
+    """TODO: finish docstring"""
 
     # Class attributes: specific for wind plot
     varname = 'relative humidity'
     units = '[%]'
 
-    # Background specific for the relative humidity figure
-    def plot_background(self):
+    def __init__(self, data):
+        """TODO: finish docstring"""
+        # initialize ProfilePlot parent class
+        super(RhProfilePlot, self).__init__(data)
+
+        # Background specific for the relative humidity figure
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
                                self.data.rh,
                                levels=np.arange(0, 100, step=10),
-                               # levels=[60, 75, 90],
                                cmap='Greens',
                                extend='max',
                                alpha=0.8,
                                antialiased=True)
-
+        # add colorbar and label
         cbar = self.fig.colorbar(bcg)
         cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
                            fontsize=14)
-        return
 
-    # Specify which other variables should be overlaid on the plot
-    def make_figure(self):
-        # plot background and its colorbar
-        self.plot_background()
-        # add theta contours
+        # plot contour lines of equivalent potential temperature
         self.plot_theta_e_contours('black')
-        # add transect wind
+        # plot quiver field of transect wind
         self.plot_transect_wind_quivers()
-        # add out of page wind contours
+        # plot contour lines of perpendicular wind
         self.plot_perpendicular_wind_contour()
+
         # finish figure layout settings and labels
         self.finish_figure_settings(self.varname)
-        # add figure explanation below
+        # add figure caption below
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
-        figtext = 'ECMWF forecast: relative humidity (shading), wind speed [m/s, vectors (transect plane), black contours \n(full lines out of page, dashed into the page), equivalent potential temperature [C, white contours]'
+        figtext = 'ECMWF forecast: relative humidity (shading), wind speed ' \
+                  '[m/s, vectors (transect plane), black contours \n(full ' \
+                  'lines out of page, dashed into the page), equivalent ' \
+                  'potential temperature [C, white contours]'
         self.fig.text(ax_loc.xmin, 0.00, figtext,
                       ha='left', va='top', fontsize=12, wrap=True)
-        return self.fig, self.ax
 
 
 class StabilityProfilePlot(ProfilePlot):
@@ -377,8 +370,12 @@ class StabilityProfilePlot(ProfilePlot):
     varname = 'moist Brunt-Väisälä frequency'
     units = '[$s^{-2}$]'
 
-    # Background specific for the relative humidity figure
-    def plot_background(self):
+    def __init__(self, data):
+        """TODO: finish docstring"""
+        # initialize ProfilePlot parent class
+        super(StabilityProfilePlot, self).__init__(data)
+
+        # Background specific for the relative humidity figure
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
                                self.data.N_m,
@@ -390,21 +387,17 @@ class StabilityProfilePlot(ProfilePlot):
 
         cbar = self.fig.colorbar(bcg)
         cbar.ax.set_ylabel('$N_m^2$' + ' ' + self.units, fontsize=14)
-        return
 
-    # Specify which other variables should be overlaid on the plot
-    def make_figure(self):
-        # plot background and its colorbar
-        self.plot_background()
-        # add theta contours
+        # plot contour lines of equivalent potential temperature
         self.plot_theta_e_contours('black')
-        # add transect wind
+        # plot quiver field of transect wind
         self.plot_transect_wind_quivers()
-        # add out of page wind contours
+        # plot contour lines of perpendicular wind
         self.plot_perpendicular_wind_contour()
+
         # finish figure layout settings and labels
         self.finish_figure_settings(self.varname)
-        return self.fig, self.ax
+        # TODO: add figure explanation/caption
 
 
 class VorticityProfilePlot(ProfilePlot):
