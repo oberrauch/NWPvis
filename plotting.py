@@ -71,35 +71,47 @@ def plot_topography(ds):
 # %% "ProfilePlot" class definition: parent class of all plots
 
 class ProfilePlot:
-    """  Defines features that can be added to all plots and customized
-    as needed  """
+    """TODO: write doc string
+    Defines features that can be added to all plots and customized
+    as needed
+    """
 
     def __init__(self, data):
+        """Each plot must be initialized with a xarray Dataset.
+
+        Parameters
+        ----------
+        data: xr.Dataset
+            Dataset containing the data to be plotted
+        """
         self.data = data
         self.x = data.x_mesh
-        # self.axis = axis
 
         self.lat = self.data.latitude.values
         self.lon = self.data.longitude.values
         self.topo = self.data.z.values / G
 
+        # define empty attributes which will be set later
+        self.title = ''
+
         # initiate figure
         self.fig, self.ax = plt.subplots()
 
     def finish_figure_settings(self, varname):
-        """
-        - Adds topography to the vertical cross-section
-        - Adds title, x- and y-labels, sets x-ticks and their labels
-        - Sets axis limits
-        - Adds text to the plot: Time since model run etc.
+        """Method to finalize the figure after plotting selected variables.
+
+        - Adding topography to the vertical cross-section
+        - Adding title, axes labels, x-ticks and x-tick labels
+        - Setting axes limits
+        - Adding additional information as text, like time since model run
 
         """
-        # add topography
+        # plot topography
         self.ax.fill_between(self.data.x_axis, self.topo, 0, color='k')
 
         # different settings for normal/diagonal cross-sections
         if self.data.cross_section_style == 'diagonal':
-            # x-tickes + labels
+            # x-ticks + labels
             self.ax.set_xticks(self.data.x_axis[::11])
             self.ax.set_xticklabels(self.data.x_ticklabels[::11], rotation=20)
             # title format
@@ -144,10 +156,9 @@ class ProfilePlot:
         # set figure size
         self.fig.set_figwidth(12)
         self.fig.set_figheight(8)
-        return
 
     def plot_theta_contours(self, color='k'):
-        """ Method to add theta contour lines to the plot"""
+        """Plot contour lines of potential temperature in degC. TODO: unit?!"""
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
                                     self.data.theta - TEMP_0,
@@ -155,10 +166,9 @@ class ProfilePlot:
                                     colors=color,
                                     linewidths=0.7)
         isentrope.clabel(fmt='%1.0f', fontsize=12)
-        return
 
     def plot_theta_e_contours(self, color='k'):
-        """ Method to add theta_e contour lines to the plot"""
+        """Plot contour lines of equivalent potential temperature in degC. TODO: unit?!"""
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
                                     self.data.theta_e - TEMP_0,
@@ -166,11 +176,9 @@ class ProfilePlot:
                                     colors=color,
                                     linewidths=0.7)
         isentrope.clabel(fmt='%1.0f', fontsize=12)
-        return
 
     def plot_transect_wind(self):
-        """ Method to plot transect wind (in the plane of the cross-section)
-        as quivers. """
+        """Plot quivers of transect wind field."""
         # get vertical wind
         w = self.data.w_ms.values
         # choose every p-th point along x/y axis
@@ -192,9 +200,9 @@ class ProfilePlot:
                            width=0.002)
         # "legend" for the quiver plot
         self.ax.quiverkey(q, 1.08, 1.01, 20, label='20 m/s', labelpos='N')
-        return
 
     def plot_out_of_page_wind_contour(self):
+        """Plot contours of perpendicular wind field."""
         # choose every p-th point along x/y axis
         [py, px] = [2, 4]
 
@@ -211,10 +219,9 @@ class ProfilePlot:
                                       colors='k')
         windcontour.monochrome = True  # Makes negative values dashed
         windcontour.clabel(fmt='%1.0f', fontsize=12)
-        return
 
     def plot_zero_temp_line(self, color='white'):
-        """ Method to add the line of 0°C to the plot"""
+        """Plot 0°C altitude line."""
         zero_temp_line = self.ax.contour(self.x,
                                          self.data.geopotential_height,
                                          self.data.t - TEMP_0,
@@ -223,7 +230,6 @@ class ProfilePlot:
                                          linewidths=2)
         # # add label
         # zero_temp_line.clabel(fmt='%1.0f', fontsize=12)
-        return
 
 
 # %% Separate classes from each plot, inheriting from the class above
