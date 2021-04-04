@@ -1,4 +1,4 @@
-"""
+"""TODO
 
 Author : Alzbeta Medvedova
 
@@ -182,47 +182,27 @@ class ProfilePlot:
                                     linewidths=0.7)
         isentrope.clabel(fmt='%1.0f', fontsize=12)
 
-    def plot_transect_wind_quivers(self):
+    def plot_transect_wind_quivers(self, px=2, py=4):
         """Plot quivers of transect wind field."""
-        # get vertical wind
-        w = self.data.w_ms.values
-        # choose every p-th point along x/y axis
-        [py, px] = [2, 4]
-
-        # get positions of points - a meshgrid to plot on
-        x = self.x[::py, ::px]
-        z = self.data.geopotential_height.values[::py, ::px]
-        w = w[::py, ::px]
-        # this is determined when cross-sections are chosen based on their
-        # orientation, i.e. if they're along constant lat, lon, or diagonal
-        page_plane = self.data.transect_wind[::py, ::px]
-
-        # quiver plot: arrows in the transect plane
-        q = self.ax.quiver(x, z,  # plotting coords: meshgrid
-                           page_plane, w,  # x- and y- components of vectors
-                           # pivot='mid',   # arrows anchored in their midpoint
+        # TODO: change name of variable
+        q = self.ax.quiver(self.x[::py, ::px],
+                           self.data.geopotential_height.values[::py, ::px],
+                           self.data.transect_wind[::py, ::px],
+                           self.data.w_ms[::py, ::px],
                            color='black',  # color of arrows
                            width=0.002)
-        # "legend" for the quiver plot
+        # add arrow to scale quivers
         self.ax.quiverkey(q, 1.08, 1.01, 20, label='20 m/s', labelpos='N')
 
     def plot_perpendicular_wind_contour(self):
         """Plot contours of perpendicular wind field."""
-        # choose every p-th point along x/y axis
-        [py, px] = [2, 4]
-
-        # get positions of points - a meshgrid to plot on
-        x = self.x[::py, ::px]
-        z = self.data.geopotential_height.values[::py, ::px]
-        # this is determined when cross-sections are chosen based on their
-        # orientation, i.e. if they're along constant lat, lon, or diagonal
-        out_of_page = self.data.perp_wind[::py, ::px]
-
-        windcontour = self.ax.contour(x, z, out_of_page,
+        windcontour = self.ax.contour(self.x, self.data.geopotential_height,
+                                      self.data.perp_wind,
                                       levels=np.arange(-200, 200, 5),
                                       linewidths=1,
                                       colors='k')
-        windcontour.monochrome = True  # Makes negative values dashed
+        # Plot negative values (out of page wind) with dashed lines
+        windcontour.monochrome = True
         windcontour.clabel(fmt='%1.0f', fontsize=12)
 
     def plot_zero_degree_line(self, color='white'):
