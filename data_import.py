@@ -1,5 +1,7 @@
 """Import data
 
+TODO: finish module docstring
+
 This module has two functions:
 1. Load all the needed *.nc files, combine them into one dataset.
    This makes it easier to work with the data later.
@@ -10,6 +12,7 @@ This module has two functions:
                    as well)
                    2. logarithm of surface pressure
                    3. surface geopotential
+
 2. Select slices of data to be visualized:
    - along constant latitude
    - along constant longitude
@@ -17,8 +20,6 @@ This module has two functions:
    When slicing, some metadata is added to the created slices
 
 Author(s): Alzbeta Medvedova, Moritz Oberrauch
-
-
 
 """
 
@@ -34,7 +35,7 @@ def get_input_data(path_sfc_geopotential=None,
                    path_lnsp=None,
                    path_model_level=None,
                    path_all_data=None):
-    """
+    """Read data from file.
 
     Loading the given *.nc files needed for the visualization of vertical
     cross-sections and combining them into one dataset.
@@ -153,7 +154,7 @@ def slice_lat(ds, lats, tolerance=0.05):
 
 
 def slice_lon(ds, lons, tolerance=0.05):
-    """Slice along longitudes
+    """Slice along longitudes.
 
     Selects data from the dataset along given lines of constant longitudes and
     add properties for plots. The selection allows is done using the nearest
