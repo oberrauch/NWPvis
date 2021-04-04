@@ -33,8 +33,8 @@ from calculations import calculate_all_vars
 from data_import import slice_lat, slice_lon, slice_diag
 
 # definitions of plotting functions/classes
-from plotting import Wind_plot, Temperature_plot, RH_plot, \
-    Stability_plot, Precipitation_plot
+from plotting import WindProfilePlot, TemperatureProfilePlot, RHProfilePlot, \
+    StabilityProfilePlot, PrecipitationProfilePlot
 from plotting import plot_topography
 
 # bool option to save all the produced figures (now used for )
@@ -70,7 +70,7 @@ ds_lon = slice_lon(ds, [5.5, 6.6, 7.6, 11.4, 12.4, 13.3])
 ds_lat = calculate_all_vars(ds_lat)
 ds_lon = calculate_all_vars(ds_lon)
 
-# Plot top view of where the cross-sections are now
+# ProfilePlot top view of where the cross-sections are now
 # this is useful for visualizing where the cross-sections are
 # values of the plotted lines must be chosen directly in the function
 
@@ -110,14 +110,14 @@ data_out = ds_lat.sel(latitude=47.3, method='nearest').isel(time=2)
 
 # ds_diag = slice_diag(ds.isel(time=36), 5.5, 46.0, 17.5, 55.0)
 # data_out_2 = calculate_all_vars(ds_diag)
-# Wind_plot(data_out_2).make_figure()
+# WindProfilePlot(data_out_2).make_figure()
 
 
-fig_t, ax_t = Temperature_plot(data_out).make_figure()
-fig_wind, ax_wind = Wind_plot(data_out).make_figure()
-fig_rh, ax_rh = RH_plot(data_out).make_figure()
-# fig_prcp, ax_prcp = Precipitation_plot(data_out).make_figure()
-# fig_Nm, axNm = Stability_plot(data_out, meshgrid, axis).make_figure()
+fig_t, ax_t = TemperatureProfilePlot(data_out).make_figure()
+fig_wind, ax_wind = WindProfilePlot(data_out).make_figure()
+fig_rh, ax_rh = RHProfilePlot(data_out).make_figure()
+# fig_prcp, ax_prcp = PrecipitationProfilePlot(data_out).make_figure()
+# fig_Nm, axNm = StabilityProfilePlot(data_out, meshgrid, axis).make_figure()
 
 if savefigs:
     time = str(data_out.time.dt.strftime("%Y%m%d_%H").values)

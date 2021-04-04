@@ -57,5 +57,5 @@ for i in ds_slices:
 data_out = ds_slices['lats'].sel(latitude=47.3, method='nearest').isel(time=2)
 
 # plot temperature
-fig_t, ax_t = plotting.Temperature_plot(data_out).make_figure()
+fig_t, ax_t = plotting.TemperatureProfilePlot(data_out).make_figure()
 plt.show()

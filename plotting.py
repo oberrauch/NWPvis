@@ -26,7 +26,7 @@ import cmocean.cm as cmo
 from constants import G, TEMP_0
 
 
-# %% Plot topography: view of the topography and cross-sections from above
+# %% ProfilePlot topography: view of the topography and cross-sections from above
 
 def plot_topography(ds):
     """ TODO: why are these values fixed?!?!?
@@ -68,9 +68,9 @@ def plot_topography(ds):
     return fig, ax
 
 
-# %% "Plot" class definition: parent class of all plots
+# %% "ProfilePlot" class definition: parent class of all plots
 
-class Plot:
+class ProfilePlot:
     """  Defines features that can be added to all plots and customized
     as needed  """
 
@@ -228,8 +228,8 @@ class Plot:
 
 # %% Separate classes from each plot, inheriting from the class above
 
-class Wind_plot(Plot):
-    """ Inherits methods and attributes from the 'Plot' class """
+class WindProfilePlot(ProfilePlot):
+    """ Inherits methods and attributes from the 'ProfilePlot' class """
 
     # Class attributes: specific for wind plot
     varname = 'total wind speed'
@@ -273,8 +273,8 @@ class Wind_plot(Plot):
         return self.fig, self.ax
 
 
-class Temperature_plot(Plot):
-    """ Inherits methods and attributes from the 'Plot' class """
+class TemperatureProfilePlot(ProfilePlot):
+    """ Inherits methods and attributes from the 'ProfilePlot' class """
 
     # Class attributes: specific for wind plot
     varname = 'temperature'
@@ -319,8 +319,8 @@ class Temperature_plot(Plot):
         return self.fig, self.ax
 
 
-class RH_plot(Plot):
-    """ Inherits methods and attributes from the 'Plot' class """
+class RHProfilePlot(ProfilePlot):
+    """ Inherits methods and attributes from the 'ProfilePlot' class """
 
     # Class attributes: specific for wind plot
     varname = 'relative humidity'
@@ -364,8 +364,8 @@ class RH_plot(Plot):
         return self.fig, self.ax
 
 
-class Stability_plot(Plot):
-    """ Inherits methods and attributes from the 'Plot' class """
+class StabilityProfilePlot(ProfilePlot):
+    """ Inherits methods and attributes from the 'ProfilePlot' class """
     # TODO: This still doesn't work I'm pretty sure!
     # Some mistake in the calculation probably? CHECK!
 
@@ -403,13 +403,13 @@ class Stability_plot(Plot):
         return self.fig, self.ax
 
 
-class Vorticity_plot(Plot):
+class VorticityProfilePlot(ProfilePlot):
     """ Dataset has relative vorticity [s^-1]"""
     # TODO: not implemented
     pass
 
 
-class Precipitation_plot(Plot):
+class PrecipitationProfilePlot(ProfilePlot):
     """ Dataset has suspended/precipitating water/ice"""
     # TODO: not implemented... or at least not finalized as I'd like it to be.
     # Add figtext.
