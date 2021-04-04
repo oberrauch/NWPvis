@@ -101,11 +101,15 @@ def get_input_data(path_sfc_geopotential=None,
 
 
 def slice_lat(ds, lats, tolerance=0.05):
-    """Slice along latitudes
+    """Slice along latitudes.
 
     Selects data from the dataset along given lines of constant latitude and
     add properties for plots. The selection allows is done using the nearest
     neighbor lookup, with the given tolerance.
+
+    Additional parameters needed later for plotting, like the mesh grid, the
+    axes labels, etc., are computed and/or defined here and added to the
+    dataset as attributes.
 
     Parameters
     ----------
@@ -116,26 +120,27 @@ def slice_lat(ds, lats, tolerance=0.05):
     tolerance : float, optional, default=0.05
         Maximum distance between specified latitudes and valid values
 
-
     Returns
     -------
     ds : xr.Dataset
-        Subset of input data
+        Subset of input data with added plotting attributes
 
     """
     # subset dataset
     ds_lat = ds.sel(latitude=lats,
                     method='nearest',
-                    tolerance=0.05).copy(deep=True)
+                    tolerance=tolerance).copy(deep=True)
 
-    # add metadata for plots: x-axis properties and title
+    # x-mesh by stacking the longitudes for each level above each other
     ds_lat.attrs['x_mesh'] = np.tile(ds.longitude, (len(ds.level), 1))
+    # use longitude values as x-ticks and labels
     ds_lat.attrs['x_axis'] = ds.longitude
     ds_lat.attrs['x_ticklabels'] = ds.longitude
+    # define x-axis label and title
     ds_lat.attrs['xlab'] = 'Longitude [°E]'
     ds_lat.attrs['title'] = 'Cross-section: {} along {:.1f}°N\n'
 
-    # used for filling the title text later
+    # specify whether the slice is along longitudes/latitudes or diagonal
     ds_lat.attrs['cross_section_style'] = 'straight'
 
     # specify transect and perpendicular wind
@@ -154,6 +159,10 @@ def slice_lon(ds, lons, tolerance=0.05):
     add properties for plots. The selection allows is done using the nearest
     neighbor lookup, with the given tolerance.
 
+    Additional parameters needed later for plotting, like the mesh grid, the
+    axes labels, etc., are computed and/or defined here and added to the
+    dataset as attributes.
+
     Parameters
     ----------
     ds : xr.Dataset
@@ -166,7 +175,7 @@ def slice_lon(ds, lons, tolerance=0.05):
     Returns
     -------
     ds : xr.Dataset
-        Subset of input data
+        Subset of input data with added plotting attributes
 
     """
     # subset dataset
@@ -174,14 +183,16 @@ def slice_lon(ds, lons, tolerance=0.05):
                     method='nearest',
                     tolerance=tolerance).copy(deep=True)
 
-    # add metadata for plots: x-axis properties and title
+    # x-mesh by stacking the latitudes for each level above each other
     ds_lon.attrs['x_mesh'] = np.tile(ds.latitude, (len(ds.level), 1))
+    # use latitude values as x-ticks and labels
     ds_lon.attrs['x_axis'] = ds.latitude
     ds_lon.attrs['x_ticklabels'] = ds.latitude
+    # define x-axis label and title
     ds_lon.attrs['xlab'] = 'Latitude [°N]'
     ds_lon.attrs['title'] = 'Cross-section: {} along {:.1f}°E\n'
 
-    # used for filling the title text later
+    # specify whether the slice is along longitudes/latitudes or diagonal
     ds_lon.attrs['cross_section_style'] = 'straight'
 
     # specify transect and perpendicular wind

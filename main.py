@@ -10,10 +10,10 @@
 # forecasting.
 #
 # STEPS:
-# 1. Combine input files into one dataset (load_cut_nc_files)
-# 2. Add geopotential and pressure to the dataset (geopotential_calculation)
+# 1. Combine input files into one dataset (load_cut_nc_files, now: data_import.py)
+# 2. Add geopotential and pressure to the dataset (geopotential_calculation, now: vertical coordinates.py)
 # 3. Add all calculated variables (calculations)
-# 4. Select time and slices/cross-sections (load_cut_nc_files)
+# 4. Select time and slices/cross-sections (load_cut_nc_files, now: data_import.py)
 # 5. Make desired plots for the selected cross-section of data (plotting)
 #
 #

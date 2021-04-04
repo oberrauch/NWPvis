@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import cmocean.cm as cmo
 
 # local dependencies
-from constants import G, TEMP_0
+import constants
 
 
 # %% ProfilePlot topography: view of the topography and cross-sections from above
@@ -45,7 +45,7 @@ def plot_topography(ds):
     ax = plt.axes(projection=ccrs.PlateCarree())
 
     # plot topography (surface geopotential divided by g): shows dataset extent
-    topo = ds.z / G
+    topo = ds.z / constants.G
     topo.plot(ax=ax, cmap='terrain', vmin=0)
     # add borders + coastline for easier orientation
     ax.add_feature(cfeature.BORDERS)
@@ -84,12 +84,15 @@ class ProfilePlot:
         data: xr.Dataset
             Dataset containing the data to be plotted
         """
+        # store data as instance attribute
         self.data = data
+        # compute mesh grids and define other axis properties
+        # TODO: decide whether to move to plots or leave in slices
         self.x = data.x_mesh
 
         self.lat = self.data.latitude.values
         self.lon = self.data.longitude.values
-        self.topo = self.data.z.values / G
+        self.topo = self.data.z.values / constants.G
 
         # define empty attributes which will be set later
         self.title = ''
@@ -161,7 +164,7 @@ class ProfilePlot:
         """Plot contour lines of potential temperature in degC. TODO: unit?!"""
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
-                                    self.data.theta - TEMP_0,
+                                    self.data.theta - constants.TEMP_0,
                                     levels=np.arange(-60, 100, 4),
                                     colors=color,
                                     linewidths=0.7)
@@ -171,7 +174,7 @@ class ProfilePlot:
         """Plot contour lines of equivalent potential temperature in degC. TODO: unit?!"""
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
-                                    self.data.theta_e - TEMP_0,
+                                    self.data.theta_e - constants.TEMP_0,
                                     levels=np.arange(-60, 100, 4),
                                     colors=color,
                                     linewidths=0.7)
@@ -224,7 +227,7 @@ class ProfilePlot:
         """Plot 0°C altitude line."""
         zero_temp_line = self.ax.contour(self.x,
                                          self.data.geopotential_height,
-                                         self.data.t - TEMP_0,
+                                         self.data.t - constants.TEMP_0,
                                          levels=[0],
                                          colors=color,
                                          linewidths=2)
@@ -290,7 +293,7 @@ class TemperatureProfilePlot(ProfilePlot):
     def plot_background(self):
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
-                               self.data.t - TEMP_0,
+                               self.data.t - constants.TEMP_0,
                                levels=20,
                                cmap=cmo.thermal,
                                extend='neither',
