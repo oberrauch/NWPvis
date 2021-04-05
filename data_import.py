@@ -97,6 +97,11 @@ def get_input_data(path_sfc_geopotential=None,
         z = sfc_geopotential.isel(time=0)
         # combine them into one dataset
         data = xr.merge([model_level, lnsp, z], join="exact")
+        # add/remove/change attributes
+        data.z.attrs['long_name'] = 'Surface geopotential'
+        data.z.attrs['standard_name'] = 'sfc_geopotential'
+        data.lnsp.attrs['units'] = 'ln(Pa)'
+        data.lnsp.attrs['standard_name'] = 'ln_sfc_p'
 
     return data
 

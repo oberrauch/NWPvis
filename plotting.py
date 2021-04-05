@@ -5,6 +5,8 @@ Author : Alzbeta Medvedova
 This script contains functions and classes necessary to create the final
 product of this project: the plots of vertical cross-sections.
 
+TODO s:
+- make more or less dynamic: colors, contour steps, ... as parameters?!
 
 """
 
@@ -24,7 +26,8 @@ import constants
 
 
 def plot_topography(ds):
-    """ TODO: why are these values fixed?!?!? I see, for showcase purposes...
+    """ TODO: why are these values fixed?!?!?
+    I see, for showcase purposes...
     This function must be made more flexible or deleted entirely.
 
     Parameters
@@ -71,9 +74,39 @@ class ProfilePlot:
     - altitude line of 0 degC temperature (as contours, hence can be multiple)
     Additionally, it has a method which takes care of all other plot elements
     (i.e., adding a title, labels, caption, etc.) to finalize the figure.
+
+    Attributes
+    ----------
+    data : xr.Dataset
+        Dateset containing all the variables that can/will be plotted
+    x : numpy.ndarray
+        The mesh grid used for plotting the transect, using geopotential height
+        as vertical coordinate and longitude/latitude as horizontal
+        coordinates. The grid is computed during the slicing, see data_import
+        module for details.
+
+    lat : numpy.ndarray
+        Latitude(s) spanning the given dataset
+    lon : numpy.ndarray
+        Longitudes(s) spanning the given dataset
+    topo : np.ndarray
+        Surface topography in meters, computes from the surface geopotential
+    title : string
+        Figure title
+    fig : matplotlib.pyplot.figure
+        The figure instance
+    ax : matplotlib.pyplot.axes
+        The axes instance
+
+    See Also
+    --------
+    data_import: TODO
+
+
+
     """
 
-    def __init__(self, data):
+    def __init__(self, data, figsize=(12, 8)):
         """Each plot must be initialized with a xarray Dataset, containing the
         data to be plotted.
 
@@ -81,10 +114,12 @@ class ProfilePlot:
         ----------
         data: xr.Dataset
             Dataset containing the data to be plotted
+        figsize: int tuple, optional, default = (12, 8)
+            Size of the new figure
         """
         # store data as instance attribute
         self.data = data
-        # compute mesh grids and define other axis properties
+        # get computed mesh grid
         self.x = data.x_mesh
 
         # store coordinates of latitude, longitude and topography as attributes
@@ -96,7 +131,6 @@ class ProfilePlot:
         self.title = ''
 
         # initiate figure
-        figsize = (12, 8)
         self.fig, self.ax = plt.subplots(figsize=figsize)
 
     def finish_figure_settings(self):
@@ -163,50 +197,112 @@ class ProfilePlot:
                      fontsize=14, transform=self.ax.transAxes)
 
     def plot_theta_contours(self, color='k'):
-        """Plot contour lines of potential temperature in degC. TODO: unit?!"""
+        """Plot contour lines of potential temperature in degC.
+        TODO: unit?!
+
+        Parameters
+        ----------
+        color: string, optional, default='k'
+            color for the contour lines, default is black
+        """
+        # the contour levels are defined as multiples of 4 K (or degC) and
+        # range from -100 degC to +100 degC
+        contour_step = 4
+        levels = np.arange(-100, 100 + contour_step, contour_step)
+
+        # plot contours of potential temperature (isentropes)
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
                                     self.data.theta - constants.TEMP_0,
-                                    levels=np.arange(-60, 100, 4),
-                                    colors=color,
+                                    levels=levels,
+                                    color=color,
                                     linewidths=0.7)
+        # add contour labels with no decimal points
         isentrope.clabel(fmt='%1.0f', fontsize=12)
 
     def plot_theta_e_contours(self, color='k'):
-        """Plot contour lines of equivalent potential temperature in degC. TODO: unit?!"""
+        """Plot contour lines of equivalent potential temperature in degC.
+        TODO: unit?!
+
+        Parameters
+        ----------
+        color: string, optional, default='k'
+            color for the contour lines, default is black
+        """
+        # the contour levels are defined as multiples of 4 K (or degC) and
+        # range from -100 degC to +100 degC
+        contour_step = 4
+        levels = np.arange(-100, 100 + contour_step, contour_step)
+
+        # plot contours of potential temperature (isentropes)
         isentrope = self.ax.contour(self.x,
                                     self.data.geopotential_height,
                                     self.data.theta_e - constants.TEMP_0,
-                                    levels=np.arange(-60, 100, 4),
+                                    levels=levels,
                                     colors=color,
                                     linewidths=0.7)
+        # add contour labels with no decimal points
         isentrope.clabel(fmt='%1.0f', fontsize=12)
 
-    def plot_transect_wind_quivers(self, px=2, py=4):
-        """Plot quivers of transect wind field."""
-        # TODO: change name of variable
-        q = self.ax.quiver(self.x[::py, ::px],
-                           self.data.geopotential_height.values[::py, ::px],
-                           self.data.transect_wind[::py, ::px],
-                           self.data.w_ms[::py, ::px],
-                           color='black',  # color of arrows
-                           width=0.002)
-        # add arrow to scale quivers
-        self.ax.quiverkey(q, 1.08, 1.01, 20, label='20 m/s', labelpos='N')
+    def plot_transect_wind_quivers(self, nx=30, nz=35):
+        """Quiver field of transect wind
+
+        Plot quivers of transect wind field, it is possible to determine how
+        much quivers in x- and z- direction should be plotted.
+
+        Parameters
+        ----------
+        nx: int, optional, default=30
+            Number of quivers along the x-direction
+        nz: int, optional, default=35
+            Number of quivers along the z-direction
+
+        """
+        # Plotting quivers at every grid point is too messy. Hence, a quiver is
+        # plotted only on every p-th grid point until the given number of
+        # quivers in x and z direction (nx, ny) are full
+        nz_all, nx_all = self.x.shape
+        px = int(round(nx_all / nx))
+        pz = int(round(nz_all / nz))
+
+        # plot quiver field
+        wind_quiver = self.ax.quiver(self.x[::pz, ::px],
+                                     self.data.geopotential_height[::pz, ::px],
+                                     self.data.transect_wind[::pz, ::px],
+                                     self.data.w_ms[::pz, ::px],
+                                     color='black',
+                                     width=0.002)
+        # add one arrow next to the legend as scale
+        self.ax.quiverkey(wind_quiver, 1.08, 1.01, 20,
+                          label='20 m/s', labelpos='N')
 
     def plot_perpendicular_wind_contour(self):
-        """Plot contours of perpendicular wind field."""
-        windcontour = self.ax.contour(self.x, self.data.geopotential_height,
-                                      self.data.perp_wind,
-                                      levels=np.arange(-200, 200, 5),
-                                      linewidths=1,
-                                      colors='k')
-        # Plot negative values (out of page wind) with dashed lines
-        windcontour.monochrome = True
-        windcontour.clabel(fmt='%1.0f', fontsize=12)
+        """Plot contours of perpendicular wind field in steps of 5 m/s."""
+        # the contour levels are defined as multiples of 5 m/s and cover the
+        # full range between minimum and maximum wind speed
+        contour_step = 5
+        max_wind = float(abs(self.data.perp_wind).max().values)
+        max_wind = contour_step * round(max_wind / contour_step)
+        levels = np.arange(-max_wind, max_wind + contour_step, contour_step)
+        # plot contour lines
+        wind_contour = self.ax.contour(self.x, self.data.geopotential_height,
+                                       self.data.perp_wind,
+                                       levels=levels,
+                                       linewidths=1,
+                                       colors='k')
+        # change negative values (out of page wind) to dashed lines
+        wind_contour.monochrome = True
+        # add contour labels with no decimal points
+        wind_contour.clabel(fmt='%1.0f', fontsize=12)
 
-    def plot_zero_degree_line(self, color='white'):
-        """Plot 0°C altitude line."""
+    def plot_zero_degree_line(self, color='w'):
+        """Plot 0°C altitude line.
+
+        Parameters
+        ----------
+        color: string, optional, default='w'
+            color for the contour lines, default is white
+        """
         zero_temp_line = self.ax.contour(self.x,
                                          self.data.geopotential_height,
                                          self.data.t - constants.TEMP_0,
@@ -216,14 +312,39 @@ class ProfilePlot:
 
 
 class WindProfilePlot(ProfilePlot):
-    """TODO: finish docstring"""
+    """Figure of wind speed and direction in vertical transect
+
+
+
+    Attributes
+    ----------
+    varname : string
+        Class attribute containing the name of the variable "total wind speed".
+        Used for legends, title and other.
+    units : string
+        Class attribute containing the corresponding unit of the class variable
+        "[m/s]". Used for legends, title and other.
+    data : xr.Dataset TODO: continue here
+
+
+    See Also
+    --------
+    ProfilePlot: TODO
+
+    """
 
     # Class attributes: specific for wind plot
     varname = 'total wind speed'
     units = '[m/s]'
 
     def __init__(self, data):
-        """TODO"""
+        """
+
+        Parameters
+        ----------
+        data
+
+        """
         # initialize ProfilePlot parent class
         super(WindProfilePlot, self).__init__(data)
 
