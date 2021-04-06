@@ -73,7 +73,7 @@ class ProfilePlot:
     - contour lines of perpendicular wind (i.e., into/out of the cross section)
     - altitude line of 0 degC temperature (as contours, hence can be multiple)
     Additionally, it has a method which takes care of all other plot elements
-    (i.e., adding a title, labels, caption, etc.) to finalize the figure.
+    (i.e., adding a title, labels, etc.) to finalize the figure.
 
     Attributes
     ----------
@@ -155,8 +155,7 @@ class ProfilePlot:
         - Plotting the topography to the vertical cross-section
         - Adding title, axes labels, x-ticks and x-tick labels
         - Setting axes limits
-        - Adding additional information as text, like time since model run,
-            figure caption, etc.
+        - Adding additional information as text, like time since model run
         """
         # plot topography
         self.ax.fill_between(self.data.x_axis, self.topo, 0, color='k')
@@ -232,7 +231,7 @@ class ProfilePlot:
                                     self.data.geopotential_height,
                                     self.data.theta - constants.TEMP_0,
                                     levels=levels,
-                                    color=color,
+                                    colors=color,
                                     linewidths=0.7)
         # add contour labels with no decimal points
         isentrope.clabel(fmt='%1.0f', fontsize=12)
@@ -337,7 +336,11 @@ class ProfilePlot:
 class WindProfilePlot(ProfilePlot):
     """Figure of wind speed and direction in vertical transect
 
-
+    Instancing a WindProfilePlot with a given dataset instantly creates a
+    figure, with total (3D) wind speed as colored contour background, parallel
+    and perpendicular (2D) as quiver plot and contour lines, respectively, and
+    isentropes. Labels, title, ... are handled by the parent method
+    `finish_figure_setting()` before adding a figure caption.
 
     Attributes
     ----------
@@ -347,31 +350,48 @@ class WindProfilePlot(ProfilePlot):
     units : string
         Class attribute containing the corresponding unit of the class variable
         "[m/s]". Used for legends, title and other.
-    data : xr.Dataset TODO: continue here
 
+
+    Methods
+    -------
+    __init__(data, figsize=(12, 8)
+        The constructor instances a ProfilePlot figure, adds the total wind
+        speed, transect and perpendicular wind, and isentropes. Corresponding
+        labels, title, legend(s) and caption(s) are added.
 
     See Also
     --------
-    ProfilePlot: TODO
+    ProfilePlot : parent class instancing figure and axes and hosting the
+        methods for adding wind and potential temperature contours and dealing
+        with labels and titles.
 
     """
 
-    # Class attributes: specific for wind plot
+    # Specific class attributed used for labels and title
     varname = 'total wind speed'
     units = '[m/s]'
 
-    def __init__(self, data):
-        """
+    def __init__(self, data, figsize=(12, 8)):
+        """Wind plot constructor
+
+        Instancing a WindProfilePlot with a given dataset instantly creates a
+        figure, with total (3D) wind speed as colored contour background,
+        parallel and perpendicular (2D) as quiver plot and contour lines,
+        respectively, and isentropes. Labels, title, etc are handled by the
+        parent method `finish_figure_setting()` before adding a figure caption.
 
         Parameters
         ----------
-        data
+        data: xr.Dataset
+            Dataset containing the data to be plotted
+        figsize: int tuple, optional, default = (12, 8)
+            Size of the new figure
 
         """
         # initialize ProfilePlot parent class
-        super(WindProfilePlot, self).__init__(data)
+        super(WindProfilePlot, self).__init__(data, figsize)
 
-        # Specific background for the wind plot
+        # Plot total wind speed (disregarding direction) as background
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
                                self.data.wspd,
@@ -386,7 +406,7 @@ class WindProfilePlot(ProfilePlot):
                            fontsize=14)
 
         # plot contour lines of potential temperature
-        self.plot_theta_contours('white')
+        self.plot_theta_contours(color='w')
         # plot quiver field of transect wind
         self.plot_transect_wind_quivers()
         # plot contour lines of perpendicular wind
@@ -405,14 +425,62 @@ class WindProfilePlot(ProfilePlot):
 
 
 class TemperatureProfilePlot(ProfilePlot):
-    """TODO: finish docstring"""
+    """Figure of air temperature in vertical transect
+
+    Instancing a TemperatureProfilePlot with a given dataset instantly creates
+    a figure, with air temperature as colored contour background, parallel and
+    perpendicular (2D) as quiver plot and contour lines, respectively,
+    isentropes and the zero degree altitude line. Labels, title, etc. are
+    handled by the parent method `finish_figure_setting()` before adding a
+    figure caption.
+
+    Attributes
+    ----------
+    varname : string
+        Class attribute containing the name of the variable "temperature". Used
+        for legends, title and other.
+    units : string
+        Class attribute containing the corresponding unit of the class variable
+        "[°C]". Used for legends, title and other.
+
+
+    Methods
+    -------
+    __init__(data, figsize=(12, 8)
+        The constructor instances a ProfilePlot figure, adds the total wind
+        speed, transect and perpendicular wind, and isentropes. Corresponding
+        labels, title, legend(s) and caption(s) are added.
+
+    See Also
+    --------
+    ProfilePlot : parent class instancing figure and axes and hosting the
+        methods for adding wind and potential temperature contours and dealing
+        with labels and titles.
+
+    """
 
     # Class attributes: specific for wind plot
     varname = 'temperature'
-    units = '[K]'
+    units = '[°C]'
 
     def __init__(self, data):
-        """TODO: finish docstring"""
+        """Temperature plot constructor
+
+        Instancing a TemperatureProfilePlot with a given dataset instantly
+        creates a figure, with air temperature as colored contour background,
+        parallel and perpendicular (2D) as quiver plot and contour lines,
+        respectively, isentropes and the zero degree altitude line. Labels,
+        title, etc. are handled by the parent method `finish_figure_setting()`
+        before adding a figure caption.
+
+        Parameters
+        ----------
+        data: xr.Dataset
+            Dataset containing the data to be plotted
+        figsize: int tuple, optional, default = (12, 8)
+            Size of the new figure
+
+        """
         # initialize ProfilePlot parent class
         super(TemperatureProfilePlot, self).__init__(data)
 
@@ -431,7 +499,7 @@ class TemperatureProfilePlot(ProfilePlot):
                            fontsize=14)
 
         # plot contour lines of potential temperature
-        self.plot_theta_contours('white')
+        self.plot_theta_contours(color='w')
         # plot quiver field of transect wind
         self.plot_transect_wind_quivers()
         # plot contour lines of perpendicular wind
@@ -444,8 +512,8 @@ class TemperatureProfilePlot(ProfilePlot):
         # add figure caption below
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
-        figtext = 'ECMWF forecast: temperature [C, shading], 0°C line ' \
-                  '(blue), wind [m/s, vectors (transect plane), black \n' \
+        figtext = 'ECMWF forecast: temperature [°C, shading], 0°C line ' \
+                  '(blue), wind [m/s], vectors (transect plane), black \n' \
                   'contours (full lines out of page, dashed into the ' \
                   'page)], potential temperature [C, white contours]'
         self.fig.text(ax_loc.xmin, 0.00, figtext,
@@ -453,22 +521,73 @@ class TemperatureProfilePlot(ProfilePlot):
 
 
 class RhProfilePlot(ProfilePlot):
-    """TODO: finish docstring"""
+    """Figure of (relative) humidity in vertical transect
+
+    Instancing a RhProfilePlot with a given dataset instantly creates a figure,
+    with relative humidity as colored contour background, parallel and
+    perpendicular (2D) as quiver plot and contour lines, respectively,
+    and isentropes (equivalent potential temperature). Labels, title, etc. are
+    handled by the parent method `finish_figure_setting()` before adding a
+    figure caption.
+
+    Attributes
+    ----------
+    varname : string
+        Class attribute containing the name of the variable
+        "relative humidity". Used for legends, title and other.
+    units : string
+        Class attribute containing the corresponding unit of the class variable
+        "[%]". Used for legends, title and other.
+
+
+    Methods
+    -------
+    __init__(data, figsize=(12, 8)
+        The constructor instances a ProfilePlot figure, adds the total wind
+        speed, transect and perpendicular wind, and isentropes. Corresponding
+        labels, title, legend(s) and caption(s) are added.
+
+    See Also
+    --------
+    ProfilePlot : parent class instancing figure and axes and hosting the
+        methods for adding wind and potential temperature contours and dealing
+        with labels and titles.
+
+    """
 
     # Class attributes: specific for wind plot
     varname = 'relative humidity'
     units = '[%]'
 
-    def __init__(self, data):
-        """TODO: finish docstring"""
+    def __init__(self, data, figsize=(12, 8)):
+        """Humidity plot constructor
+
+        Instancing a RhProfilePlot with a given dataset instantly creates a
+        figure, with relative humidity as colored contour background, parallel
+        and perpendicular (2D) as quiver plot and contour lines, respectively,
+        and isentropes (equivalent potential temperature). Labels, title, etc.
+        are handled by the parent method `finish_figure_setting()` before
+        adding a figure caption.
+
+        Parameters
+        ----------
+        data: xr.Dataset
+            Dataset containing the data to be plotted
+        figsize: int tuple, optional, default = (12, 8)
+            Size of the new figure
+        """
         # initialize ProfilePlot parent class
-        super(RhProfilePlot, self).__init__(data)
+        super(RhProfilePlot, self).__init__(data, figsize)
+
+        # the contour levels are defined as in 10% steps from 0%x to 100%
+        contour_step = 10
+        levels = np.arange(0, 100, step=contour_step)
 
         # Background specific for the relative humidity figure
         bcg = self.ax.contourf(self.x,
                                self.data.geopotential_height,
                                self.data.rh,
-                               levels=np.arange(0, 100, step=10),
+                               levels=levels,
                                cmap='Greens',
                                extend='max',
                                alpha=0.8,
@@ -479,7 +598,7 @@ class RhProfilePlot(ProfilePlot):
                            fontsize=14)
 
         # plot contour lines of equivalent potential temperature
-        self.plot_theta_e_contours('black')
+        self.plot_theta_e_contours()
         # plot quiver field of transect wind
         self.plot_transect_wind_quivers()
         # plot contour lines of perpendicular wind
@@ -491,9 +610,9 @@ class RhProfilePlot(ProfilePlot):
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
         figtext = 'ECMWF forecast: relative humidity (shading), wind speed ' \
-                  '[m/s, vectors (transect plane), black contours \n(full ' \
+                  '[m/s], vectors (transect plane), black contours \n(full ' \
                   'lines out of page, dashed into the page), equivalent ' \
-                  'potential temperature [C, white contours]'
+                  'potential temperature [C, black contours]'
         self.fig.text(ax_loc.xmin, 0.00, figtext,
                       ha='left', va='top', fontsize=12, wrap=True)
 
