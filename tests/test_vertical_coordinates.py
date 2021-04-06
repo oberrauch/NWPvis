@@ -109,14 +109,22 @@ class TestVerticalCoordinates(TestCase):
         geopot_half_level = test_ds.z + R_DRY * (
                 temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
         geopot_half_level = geopot_half_level.reindex(
-            level=geopot_half_level.level[::-1])
+            level=geopot_half_level.level[::-1]).transpose()
         test_geopotential = geopot_half_level + alpha * R_DRY * temp_virtual
         test_geopotential_height = test_geopotential / G
 
-        # compute geopotential using the module's function
-        ds = get_geopotential(self.ds)
+        # compute geopotential on new dataset using the module's function
+        ds_new = get_geopotential(self.ds, inplace=False)
 
         # compare
-        xr.testing.assert_equal(ds['geopotential'], test_geopotential)
-        xr.testing.assert_equal(ds['geopotential_height'],
+        xr.testing.assert_equal(ds_new['geopotential'], test_geopotential)
+        xr.testing.assert_equal(ds_new['geopotential_height'],
+                                test_geopotential_height)
+
+        # compute geopotential inplace using the module's function
+        get_geopotential(self.ds, inplace=True)
+
+        # compare
+        xr.testing.assert_equal(self.ds['geopotential'], test_geopotential)
+        xr.testing.assert_equal(self.ds['geopotential_height'],
                                 test_geopotential_height)

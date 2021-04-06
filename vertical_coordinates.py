@@ -1,11 +1,10 @@
 """Vertical coordinates
 
-This module calculates pressure and geopotential height on full (and half)
-model levels of a xr.Dataset.
+This module calculates pressure, geopotential and geopotential height on full
+and half model levels.
 
-TODO: finish/update this docstring.
 
-Based on the script of Johannes Horak and later by Deborah Morgenstern.
+
 
 Inputs:
 ds: xr.Dataset containing:
@@ -21,7 +20,8 @@ Output:
 ds: xr.Dataset, which now contains also pressure fields, geopotential and
   geopotential height on all model levels
 
-Author(s): Alzbeta Medvedova, Moritz Oberrauch
+Author(s): Alzbeta Medvedova, Moritz Oberrauch (Based on the script of Johannes
+Horak and Deborah Morgenstern)
 
 References
 ----------
@@ -32,51 +32,19 @@ References
 
 """
 
+# built ins
+import os
+
+# external libraries
 import pandas as pd
 import xarray as xr
 import numpy as np
 import requests
-import os
 
 # local dependencies
 import constants as const
 import calculations
 
-
-# %% MATH FROM THE ECMWF DOCUMENTATION
-#
-# t, q, tv: temperature, relative humidity, virtual temperature
-# tv = t * [1 + (R_vap/R_dry - 1) * q]      (no Eq. number)
-# code can be vectorized - no dependency on neighboring values
-#
-#
-# p, p_S: pressure, surface pressure
-# a, b: coefficients on half levels, constants from ECMWF
-# p[k+1/2] = a[k+1/2] + b[k+1/2] * p_s      (Eq. 2.11)
-# p[k] = (p[k+1/2] - p[k+1/2])/2            (no Eq. number)
-# code can be vectorized - no dependency on neighboring values
-#
-#
-# dp: pressure differential
-# dp[k] = p[k+1/2] - p[k-1/2]               (Eq. 2.13)
-# code can be vectorized - no dependency on neighboring values
-#
-# alpha: function of pressure, pressure gradient
-# alpha[1] = ln(2)
-# alpha[k] = 1 - p[k-1/2]/dp[k] * ln(p[k+1/2]/p[k-1/2])  (for k > 1, Eq. 2.23)
-# code can be vectorized - no dependency on neighboring values
-#
-#
-# psi: geopotential
-# psi[k+1/2] = psi[sfc] + (sum_{j=k+1}^NLEV R_dry* tv[j] *
-#                           ln(p[j+1/2]/p[j-1/2]))       (Eq. 2.21)
-# psi[k] = psi[k+1/2] + alpha[k] * R_dry * tv[k]
-# code CANNOT be vectorized - psi has to be calculated iteratively
-#  - start at the ground where k = 137, repeat up to low k's
-#  - at this point, we will have all tv and p calculated
-
-
-# FUNCTIONS FOR INPUT DATA
 
 def get_model_level_definition(dir_path=None):
     """Definition of model levels
@@ -84,9 +52,10 @@ def get_model_level_definition(dir_path=None):
     TODO: decide if not just keeping this file and removing download routine
 
     Function loading the coefficients a, b needed for calculating pressure
-    at half levels. If the file containing ecmwf_ab_coeffs.nc the coefficients
-    does not exist yet, it will be downloaded and stored. The directory where
-    the file should be (or will be saved) can be provided, default is ./data/
+    at half levels. If the file containing `ecmwf_ab_coeffs.nc` the
+    coefficients does not exist yet, it will be downloaded and stored.
+    The directory where the file should be (or will be saved) can be provided,
+    default is ./data/
 
     Parameters
     ----------
@@ -139,7 +108,7 @@ def get_model_level_definition(dir_path=None):
     return level_coef
 
 
-def get_pressure_and_alpha(ds, dir_path=None):
+def get_pressure_and_alpha(data, dir_path=None, inplace=True):
     """Pressure calculations
 
     Calculate pressure, alpha on full model levels based on Eqns. 2.11, 2.23
@@ -147,12 +116,16 @@ def get_pressure_and_alpha(ds, dir_path=None):
 
     Parameters
     ----------
-    ds : xr.Dataset
+    data : xr.Dataset
         dataset containing the logarithmic surface pressure (data.lnsp)
 
     dir_path : str, optional
         path to directory where the file should be (or will be saved),
         defaults to ./data/
+
+    inplace : bool, optional, default=True
+        If True, the calculated pressure (but not alpha and pressure ratios) is
+        added inplace to the given dataset, otherwise not.
 
     Returns
     -------
@@ -193,7 +166,7 @@ def get_pressure_and_alpha(ds, dir_path=None):
     # Get coefficients to compute pressure at half levels
     level_coef = get_model_level_definition(dir_path)
     # Get sfc pressure from logarithmic surface pressure
-    sfc_pressure = np.exp(ds['lnsp'])
+    sfc_pressure = np.exp(data['lnsp'])
 
     # Compute pressure at all half levels
     p_half_levels = level_coef.A + level_coef.B * sfc_pressure
@@ -213,21 +186,24 @@ def get_pressure_and_alpha(ds, dir_path=None):
     # set alpha at level 1 to ln(2)
     alpha.loc[dict(level=1)] = np.log(2)
 
+    # add to dataset
+    if inplace:
+        data['pressure'] = pressure
+
     return pressure, alpha, pressure_ratio
 
 
-def get_geopotential(ds, dir_path=None):
+def get_geopotential(data, dir_path=None, inplace=True):
     """Geopotential calculations
 
     Calculates pressure, geopotential, and geopotential height at all full
-    model levels - to be used as vertical coordinates.
-
-    Coefficients a, b needed for conversion are either loaded from a pickle
-    file or downloaded in the process
+    model levels following the [ECMWF]_ documentation (Eq. 2.22). Coefficients
+    :math:`a`, :math:`b` needed for conversion are either loaded from a *.nc
+    file or downloaded in the process.
 
     Parameters
     ----------
-    ds : xr.Dataset
+    data : xr.Dataset
         Dataset containing the following variables for the dimensions time,
         height (level) and longitude/latitude:
         - logarithmic surface pressure (data.lnsp)
@@ -239,43 +215,77 @@ def get_geopotential(ds, dir_path=None):
         path to directory where the file should be (or will be saved),
         defaults to ./data/
 
+    inplace : bool, optional, default=True
+        If True, the calculated geopotential and geopotential height are added
+        inplace to the given dataset, otherwise not.
+
     Returns
     -------
-    ds : xr.Dataset
-        Same dataset, now containing also pressure, geopotential and
-        geopotential height at all vertical levels
+    data : xr.Dataset
+        Dataset containing pressure, geopotential and geopotential height
+        at all vertical levels in addition to the other variables
+
+
+    Notes
+    -----
+    Equiation 2.22 of the [EMCWF]_ documentation describes the computation of
+    the full level geopotential :math:`\phi_k` as a function of the half level
+    geopotential :math:`\phi_{k+1/2}`, the coefficient :math:`\alpha_k` (see
+    `get_pressure_and_alpha`), the gas constant for dry air
+    :math:`R_\text{dry}` and the virutal tempertaure :math:`T_{v,k}`
+    (see the `calculations` module) as
+
+    .. math:: \phi_k = \phi_{k+1/2} + \alpha_k R_\text{dry}T_{v,k}
+
+    See Also
+    --------
+    get_pressure_and_alpha : TODO
+    calculations : TODO
+
+
     """
 
-    # Compute needed variables, add to dataset if needed for later
-    temp_virtual = calculations.virtual_temperature(ds)
-    ds['pressure'], alpha, pressure_ratio = get_pressure_and_alpha(ds,
-                                                                   dir_path)
+    # Compute needed variables, add pressure dataset if inplace
+    temp_virtual = calculations.virtual_temperature(data)
+    pressure, alpha, pressure_ratio = get_pressure_and_alpha(data,
+                                                             dir_path,
+                                                             inplace)
     # reverse virtual temperature and pressure ratio along level coordinates
     # in order to use the cumulative sum function on the dataset
     temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
     pressure_ratio = pressure_ratio.reindex(level=pressure_ratio.level[::-1])
 
     # compute geopotential at half levels
-    geopot_half_level = ds.z + const.R_DRY * (
+    geopot_half_level = data.z + const.R_DRY * (
             temp_virtual * np.log(pressure_ratio)).cumsum(dim='level')
     # reverse level coordinates again for consistency
     geopot_half_level = geopot_half_level.reindex(
         level=geopot_half_level.level[::-1]).transpose()
     temp_virtual = temp_virtual.reindex(level=temp_virtual.level[::-1])
 
+    if inplace:
+        # create new pointer to the given dataset
+        data_new = data
+    else:
+        # create a deep copy of the given dataset and add pressure
+        data_new = data.copy(deep=True)
+        data_new['pressure'] = pressure
+
     # compute geopotential at full model levels and add to dataset
-    ds['geopotential'] = geopot_half_level + alpha * const.R_DRY * temp_virtual
+    data_new['geopotential'] = (geopot_half_level
+                                + alpha * const.R_DRY * temp_virtual)
 
     # add geopotential height to dataset
-    ds['geopotential_height'] = ds['geopotential'] / const.G
+    data_new['geopotential_height'] = data_new['geopotential'] / const.G
 
     # Add metadata
-    ds.geopotential.attrs['units'] = 'm**2 s**-2'
-    ds.geopotential.attrs['long_name'] = 'Geopotential on full model levels'
-    ds.geopotential_height.attrs['units'] = 'm'
-    ds.geopotential_height.attrs['long_name'] = \
-        'Geopotential height on full model levels'
-    ds.pressure.attrs['units'] = 'Pa'
-    ds.pressure.attrs['long_name'] = 'Pressure on full model levels'
+    data_new.geopotential.attrs['units'] = 'm**2 s**-2'
+    data_new.geopotential.attrs['long_name'] = 'Geopotential on full model ' \
+                                               'levels'
+    data_new.geopotential_height.attrs['units'] = 'm'
+    data_new.geopotential_height.attrs['long_name'] = 'Geopotential height' \
+                                                      'on full model levels'
+    data_new.pressure.attrs['units'] = 'Pa'
+    data_new.pressure.attrs['long_name'] = 'Pressure on full model levels'
 
-    return ds
+    return data_new

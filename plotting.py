@@ -1,4 +1,4 @@
-"""TODO
+"""Plots of vertical transects
 
 Author : Alzbeta Medvedova, Moritz Oberrauch
 
