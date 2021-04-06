@@ -1,42 +1,30 @@
-"""
+"""Calculations of physical atmospheric properties
 
 This module contains functions to calculate derived variables based on the
 variables originally contained in the loaded dataset.
-
-TODO: data.q is specific humidity and NOT mixing ratio
-
-Author(s): Alzbeta Medvedova, Moritz Oberrauch
-
-References:
- .. [Bolton 1980] Bolton, D., 1980, The computation of equivalent potential
-    temperature. Mon. Wea. Rev., 108, 1046-1053
-
- .. [Hobbs 2006]: Hobbs, P. V., and J. M. Wallace, 2006, Atmospheric Science:
-    An Introductory Survey. 2nd ed. Academic Press, 504 pp.
-
- .. [Stull 2011]: Stull, R., 2011, Meteorology for Scientists & Engineers,
-    3rd Edition. Univ. of British Columbia,  938 pp.,  ISBN 978-0-88865-178-5
-
-
-"""
-# build ins
-
-#
-import numpy as np
-import pandas as pd
-
-# local imports -
-import constants as const
+The (default ECMWF) input dataset `data` contains the following variables on
+all (vertical) model levels and all points in time:
+- air temperature `data.t` in Kelvin
+- specific humidity `data.q` in Kilogram per Kilogram
+- eastward and northward component of the wind `data.u` and `data.v` in Meter
+    per Second
+- Lagrangian tendency of air pressure, i.e. vertical velocity with respect to
+    pressure `data.w` in Pascal per Second
+- relative vorticity `data.vo` in Hertz (i.e., per Seconds)
+- fraction of cloud cover `data.cc` from 0 to 1
+- specific cloud liquid and ice water content, `data.clwc` and `data.ciwc`,
+    respectively, in Kilogram per Kilogram
+- specific rain and snow water content, `data.crwc` and `data.cswc`,
+    respectively, in Kilogram per Kilogram
+- ozone mass mixing ratio `data.o3` in Kilogram per Kilogram
+The logarithmic surface pressure `data.lnsp` has nor vertical coordinate but
+spans only longitudes, latitudes and time. The surface geopotential `data.z`
+(corresponding to the topography) does not change with time.
+The vertical coordinates (pressure, geopotential and geopotential height) are
+calculated by the `vertical_coordinates` module.
 
 
-# In the input files, we have the following variables:
-# t, q, u, v
-# w [Pa/s]
-# vo: relative vorticity
-# cc: cloud fraction
-# specific rain water/snow water, cloud liquid water/cloud ice water content
-# pressure, geopotential, geopotential height
-
+TODO: continue here
 # we need:
 # theta_es (saturation equivalent potential temperature)
 # vorticity (relative? probably...)
@@ -54,6 +42,37 @@ import constants as const
 # T_lcl: needs t, rh
 # theta_e: needs t, p, q, T_lcl
 # vertical velocity in m/s: needs t, p, rh, es
+
+
+
+Author(s): Alzbeta Medvedova, Moritz Oberrauch
+
+See Also
+--------
+vertical_coordinates : module calculating pressure and geopotential (height) on
+    full and half model levels.
+
+References
+----------
+ .. [Bolton 1980] Bolton, D., 1980, The computation of equivalent potential
+    temperature. Mon. Wea. Rev., 108, 1046-1053
+
+ .. [Hobbs 2006]: Hobbs, P. V., and J. M. Wallace, 2006, Atmospheric Science:
+    An Introductory Survey. 2nd ed. Academic Press, 504 pp.
+
+ .. [Stull 2011]: Stull, R., 2011, Meteorology for Scientists & Engineers,
+    3rd Edition. Univ. of British Columbia,  938 pp.,  ISBN 978-0-88865-178-5
+
+
+"""
+# build ins
+
+# external libraries
+import numpy as np
+import pandas as pd
+
+# local imports -
+import constants as const
 
 
 # %% DRY THERMODYNAMICS

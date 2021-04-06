@@ -1,6 +1,6 @@
 """Vertical coordinates
 
-This script calculates pressure and geopotential height on full (and half)
+This module calculates pressure and geopotential height on full (and half)
 model levels of a xr.Dataset.
 
 TODO: finish/update this docstring.
@@ -23,7 +23,8 @@ ds: xr.Dataset, which now contains also pressure fields, geopotential and
 
 Author(s): Alzbeta Medvedova, Moritz Oberrauch
 
-References:
+References
+----------
  .. [ECMWF]: European Centre for Medium-Range Weather Forecasts, 2015, "IFS
     DOCUMENTATION – Cy41r1 Operational implementation 12 May 2015, PART III:
     DYNAMICS AND NUMERICAL PROCEDURES", Shinfield Park, Reading, RG2 9AX,
