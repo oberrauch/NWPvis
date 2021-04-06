@@ -1,6 +1,6 @@
 """TODO
 
-Author : Alzbeta Medvedova
+Author : Alzbeta Medvedova, Moritz Oberrauch
 
 This script contains functions and classes necessary to create the final
 product of this project: the plots of vertical cross-sections.
@@ -84,7 +84,6 @@ class ProfilePlot:
         as vertical coordinate and longitude/latitude as horizontal
         coordinates. The grid is computed during the slicing, see data_import
         module for details.
-
     lat : numpy.ndarray
         Latitude(s) spanning the given dataset
     lon : numpy.ndarray
@@ -98,17 +97,34 @@ class ProfilePlot:
     ax : matplotlib.pyplot.axes
         The axes instance
 
+    Methods
+    -------
+    __init__(data, figsize=(12, 8))
+        The constructor copies the given dataset needed coordinates before
+        instancing a figure (and axes) with the given figure size.
+    finish_figure_settings()
+        Finalizes the figure by adding topography, labels, title, and caption.
+    plot_theta_contours(color='k')
+        Plots isentropes (contour lines of potential temperature)
+    plot_theta_contours(color='k')
+        Plots contour lines of equivalent potential temperature
+    plot_transect_wind_quivers(nx=30, nz=35)
+        Plots quiver field of transect wind with nx horizontal grid points and
+        nz vertical grid points.
+    plot_plot_perpendicular_wind_contour(color='k')
+        Plots contour lines of perpendicular (in/out of page) wind
+    plot_zero_plot_zero_degree_line(color='w')
+        Plots contour along the 0 degC altitude line(s)
+
     See Also
     --------
     data_import: TODO
-
-
 
     """
 
     def __init__(self, data, figsize=(12, 8)):
         """Each plot must be initialized with a xarray Dataset, containing the
-        data to be plotted.
+        data to be plotted. The figure size can be supplied/changed as well.
 
         Parameters
         ----------
@@ -135,6 +151,7 @@ class ProfilePlot:
 
     def finish_figure_settings(self):
         """Finalize the figure after plotting selected variables by:
+
         - Plotting the topography to the vertical cross-section
         - Adding title, axes labels, x-ticks and x-tick labels
         - Setting axes limits
@@ -276,8 +293,14 @@ class ProfilePlot:
         self.ax.quiverkey(wind_quiver, 1.08, 1.01, 20,
                           label='20 m/s', labelpos='N')
 
-    def plot_perpendicular_wind_contour(self):
-        """Plot contours of perpendicular wind field in steps of 5 m/s."""
+    def plot_perpendicular_wind_contour(self, color='k'):
+        """Plot contours of perpendicular wind field in steps of 5 m/s.
+
+        Parameters
+        ----------
+        color: string, optional, default='k'
+            color for the contour lines, default is black
+        """
         # the contour levels are defined as multiples of 5 m/s and cover the
         # full range between minimum and maximum wind speed
         contour_step = 5
@@ -289,7 +312,7 @@ class ProfilePlot:
                                        self.data.perp_wind,
                                        levels=levels,
                                        linewidths=1,
-                                       colors='k')
+                                       colors=color)
         # change negative values (out of page wind) to dashed lines
         wind_contour.monochrome = True
         # add contour labels with no decimal points
