@@ -26,9 +26,58 @@ Author(s): Alzbeta Medvedova, Moritz Oberrauch
 # external libraries
 import xarray as xr
 import numpy as np
+from itertools import repeat
+from geopy import distance
 
 # local imports
 from calculations import angle, diag_wind
+
+
+def _lat_lon_to_distance(ds):
+    """Distance between longitude/latitude coordinates.
+
+    Computes and returns geodesic distance in kilometers between the
+    longitude/latitude coordinates of the given dataset. Dataset can be a slice
+    along longitudes, latitudes or diagonally, i.e., latitudes and longitudes
+    must be either be of same length or constant. Hence this should/can be used
+    only after slicing the data.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset to be sliced
+
+    Returns
+    -------
+    float array
+        Array containing the cumulative geodesic distance along the coordinate
+        slice in kilometers
+
+    """
+    # create array of lat/lon pairs
+    lats = ds.latitude.values
+    lons = ds.longitude.values
+    if lats.size == lons.size:
+        points = np.array(list(zip(lats, lons)))
+    elif lats.size == 1:
+        points = np.array(list(zip(repeat(lats), lons)))
+    elif lons.size == 1:
+        points = np.array(list(zip(lats, repeat(lons))))
+    else:
+        raise ValueError(
+            "Latitudes and longitudes must be either be of same length "
+            "or constant")
+
+    # iteratively compute geodesic distance between subsequent points
+    # Note: distance along the great circle is alternatively possible
+    dist = list()
+    dist.append(0)
+    for p0, p1 in zip(points[:-1], points[1:]):
+        dist.append(distance.geodesic(p0, p1).km)
+    # compute cumulative distance
+    dist = np.cumsum(dist)
+
+    return dist
 
 
 def get_input_data(path_sfc_geopotential=None,
@@ -137,13 +186,17 @@ def slice_lat(ds, lats, tolerance=0.05):
                     method='nearest',
                     tolerance=tolerance).copy(deep=True)
 
+    # compute distance between coordinate slices and add to dataset
+    dist = _lat_lon_to_distance(ds_lat)
+    ds_lat.attrs['dist'] = dist
+
     # x-mesh by stacking the longitudes for each level above each other
-    ds_lat.attrs['x_mesh'] = np.tile(ds.longitude, (len(ds.level), 1))
+    ds_lat.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
     # use longitude values as x-ticks and labels
-    ds_lat.attrs['x_axis'] = ds.longitude
-    ds_lat.attrs['x_ticklabels'] = ds.longitude
+    ds_lat.attrs['x_axis'] = dist
+    ds_lat.attrs['x_ticklabels'] = dist
     # define x-axis label and title
-    ds_lat.attrs['xlab'] = 'Longitude [°E]'
+    ds_lat.attrs['xlab'] = 'Distance [km]'
     ds_lat.attrs['title'] = 'Cross-section: {} along {:.1f}°N\n'
 
     # specify whether the slice is along longitudes/latitudes or diagonal
@@ -189,13 +242,17 @@ def slice_lon(ds, lons, tolerance=0.05):
                     method='nearest',
                     tolerance=tolerance).copy(deep=True)
 
+    # compute distance between coordinate slices and add to dataset
+    dist = _lat_lon_to_distance(ds_lon)
+    ds_lon.attrs['dist'] = dist
+
     # x-mesh by stacking the latitudes for each level above each other
-    ds_lon.attrs['x_mesh'] = np.tile(ds.latitude, (len(ds.level), 1))
+    ds_lon.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
     # use latitude values as x-ticks and labels
-    ds_lon.attrs['x_axis'] = ds.latitude
-    ds_lon.attrs['x_ticklabels'] = ds.latitude
+    ds_lon.attrs['x_axis'] = dist
+    ds_lon.attrs['x_ticklabels'] = dist
     # define x-axis label and title
-    ds_lon.attrs['xlab'] = 'Latitude [°N]'
+    ds_lon.attrs['xlab'] = 'Distance [km]'
     ds_lon.attrs['title'] = 'Cross-section: {} along {:.1f}°E\n'
 
     # specify whether the slice is along longitudes/latitudes or diagonal

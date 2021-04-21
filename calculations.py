@@ -80,7 +80,7 @@ import constants as const
 def theta_from_t_p(data):
     """Potential temperature
 
-    Compute potential temperature theta at all hybrid levels
+    Compute potential temperature theta at all levels
 
     Parameters
     ----------
@@ -141,8 +141,6 @@ def windspeed(data):
 
     return wspd
 
-
-# %% MOIST THERMODYNAMICS
 
 def virtual_temperature(data):
     """Virtual temperature

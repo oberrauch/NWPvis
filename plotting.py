@@ -286,6 +286,7 @@ class ProfilePlot:
                                      self.data.geopotential_height[::pz, ::px],
                                      self.data.transect_wind[::pz, ::px],
                                      self.data.w_ms[::pz, ::px],
+                                     # TODO: check quivers, all horizontal and not angled
                                      color='black',
                                      width=0.002)
         # add one arrow next to the legend as scale
