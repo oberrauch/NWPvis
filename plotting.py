@@ -163,8 +163,8 @@ class ProfilePlot:
         # different settings for normal/diagonal cross-sections
         if self.data.cross_section_style == 'diagonal':
             # x-ticks + labels
-            self.ax.set_xticks(self.data.x_axis[::11])
-            self.ax.set_xticklabels(self.data.x_ticklabels[::11], rotation=20)
+            # self.ax.set_xticks(self.data.x_axis[::11])
+            # self.ax.set_xticklabels(self.data.x_ticklabels[::11], rotation=20)
             # title format
             self.title = self.data.title.format(self.varname)
         elif self.data.cross_section_style == 'straight':

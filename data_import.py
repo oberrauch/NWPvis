@@ -26,8 +26,10 @@ Author(s): Alzbeta Medvedova, Moritz Oberrauch
 # external libraries
 import xarray as xr
 import numpy as np
+import math
 from itertools import repeat
-from geopy import distance
+from geopy import distance as gdistance
+from geographiclib import geodesic
 
 # local imports
 from calculations import angle, diag_wind
@@ -73,7 +75,7 @@ def _lat_lon_to_distance(ds):
     dist = list()
     dist.append(0)
     for p0, p1 in zip(points[:-1], points[1:]):
-        dist.append(distance.geodesic(p0, p1).km)
+        dist.append(gdistance.geodesic(p0, p1).km)
     # compute cumulative distance
     dist = np.cumsum(dist)
 
@@ -190,12 +192,11 @@ def slice_lat(ds, lats, tolerance=0.05):
     dist = _lat_lon_to_distance(ds_lat)
     ds_lat.attrs['dist'] = dist
 
-    # x-mesh by stacking the longitudes for each level above each other
-    ds_lat.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
-    # use longitude values as x-ticks and labels
+    # use distance along slice as x axis
     ds_lat.attrs['x_axis'] = dist
-    ds_lat.attrs['x_ticklabels'] = dist
-    # define x-axis label and title
+    # x-mesh by stacking the distances for each level above each other
+    ds_lat.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
+    # specify x-axis label and title
     ds_lat.attrs['xlab'] = 'Distance [km]'
     ds_lat.attrs['title'] = 'Cross-section: {} along {:.1f}°N\n'
 
@@ -206,6 +207,7 @@ def slice_lat(ds, lats, tolerance=0.05):
     ds_lat['transect_wind'] = ds_lat.u
     # S/N wind - minus sign to make southerly (out of page) positive:
     # TODO: does this hold true for southern hemisphere?!
+    # TODO: right hand coordinate system
     ds_lat['perp_wind'] = -1 * ds_lat.v
 
     return ds_lat
@@ -246,12 +248,11 @@ def slice_lon(ds, lons, tolerance=0.05):
     dist = _lat_lon_to_distance(ds_lon)
     ds_lon.attrs['dist'] = dist
 
-    # x-mesh by stacking the latitudes for each level above each other
-    ds_lon.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
-    # use latitude values as x-ticks and labels
+    # use distance along slice as x axis
     ds_lon.attrs['x_axis'] = dist
-    ds_lon.attrs['x_ticklabels'] = dist
-    # define x-axis label and title
+    # x-mesh by stacking the distances for each level above each other
+    ds_lon.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
+    # specify x-axis label and title
     ds_lon.attrs['xlab'] = 'Distance [km]'
     ds_lon.attrs['title'] = 'Cross-section: {} along {:.1f}°E\n'
 
@@ -259,15 +260,16 @@ def slice_lon(ds, lons, tolerance=0.05):
     ds_lon.attrs['cross_section_style'] = 'straight'
 
     # specify transect and perpendicular wind
+    # TODO: right hand coordinate system
     ds_lon['transect_wind'] = ds_lon.v
     ds_lon['perp_wind'] = ds_lon.u
 
     return ds_lon
 
 
-def slice_diag(ds, lon0, lat0, lon1, lat1):
+def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     """
-    TODO: not look at yet
+    TODO: docstring
 
     Selects a slice of data from the dataset along a diagonal defined by two
     points - their longitude and latitude
@@ -276,9 +278,12 @@ def slice_diag(ds, lon0, lat0, lon1, lat1):
     ----------
     ds : xr.Dataset
         Dataset to be sliced
-    lon0, lat0, lon1, lat1 : float
-        lat/lon coordinates of the first (0) and last (1) point of the
+    lat1, lon1, lat2, lon2 : float
+        lat/lon coordinates of the first (1) and last (2) point of the
         diagonal cross-section
+    res_km : float, optional
+        Grid spacing along the new cross section in kilometers. Default is to
+        match the original dataset
 
     Returns
     -------
@@ -286,49 +291,75 @@ def slice_diag(ds, lon0, lat0, lon1, lat1):
         a diagonal cross-section with a new dimension in the data
 
     """
-    num = 100  # number of horizontal points for the diagonal cross-section
 
-    # Make sure that longitude in the cross-sections always increases
-    #   (if it doesn't, exchange starting points)
-    # This is necessary for correct re-mapping of winds and plotting, and
-    #   it also limits cross-section bearing angle from 0 to 180 deg
-    if lon1 < lon0:
-        [lon1, lon0] = [lon0, lon1]
-        [lat1, lat0] = [lat0, lat1]
+    if not res_km:
+        # compute resolution in kilometers based on the resolution of the given
+        # dataset and the northern/southern-most latitude of the slice
+        sign_digits = 2
+        dlon = abs(min(ds.longitude.diff(dim='longitude').values))
+        dlon = round(dlon, sign_digits - (int(np.floor(np.log10(dlon))) - 1))
+        dlat = abs(min(ds.latitude.diff(dim='latitude').values))
+        dlat = round(dlat, sign_digits - (int(np.floor(np.log10(dlat))) - 1))
 
-    # Define cross-section locations: arrays need the same number of points!
-    lat_np = np.linspace(lat0, lat1, num)
-    lon_np = np.linspace(lon0, lon1, num)
+        max_lat = np.deg2rad(max(ds.latitude.values))
+        radius_earth = 6371
+        res_km = 2 * np.pi * radius_earth * min(dlat, dlon) / 360 * \
+                 np.cos(max_lat)
+
+    # compute the geodesic line (and distance) on the WGS84 ellipsoid
+    line = geodesic.Geodesic.WGS84.InverseLine(lat1=lat1, lon1=lon1,
+                                               lat2=lat2, lon2=lon2)
+    distance_m = line.s13
+
+    # compute coordinates of points along the geodesic line with
+    # with the given distance from each other
+    lats = list()
+    lons = list()
+    for d in np.arange(0, distance_m, res_km*1e3):
+        pos = line.Position(d)
+        lats.append(pos['lat2'])
+        lons.append(pos['lon2'])
+    # add end position to list
+    lats.append(lat2)
+    lons.append(lon2)
+
+    # Make sure that longitude in the cross-sections always increases, and
+    # exchange starting points if it doesn't. This is necessary for correct
+    # re-mapping of winds and plotting, and it also limits cross-section
+    # bearing angle from 0 to 180 deg
+    # TODO: right hand coordinate system
 
     # Get an array lat/lon pairs to be used as plot labels
-    latlon_pairs = np.column_stack((lat_np, lon_np))
+    latlon_pairs = np.column_stack((lats, lons))
     xlabels = list(map(tuple, np.round(latlon_pairs, 2)))
 
     # Get cross-section locations as xr.DataArrays: used for interpolation
-    lat_xr = xr.DataArray(lat_np, dims='diag')
-    lon_xr = xr.DataArray(lon_np, dims='diag')
+    lats = xr.DataArray(lats, dims='diag')
+    lons = xr.DataArray(lons, dims='diag')
 
     # Interpolate along the defined line
-    ds_diag = ds.interp(latitude=lat_xr, longitude=lon_xr).copy()
+    ds_diag = ds.interp(latitude=lats, longitude=lons).copy()
 
-    # Index for plotting
-    idx = np.linspace(0, num, num)
+    # compute distance between coordinate slices and add to dataset
+    dist = _lat_lon_to_distance(ds_diag)
+    ds_diag.attrs['dist'] = dist
 
     # add metadata: x-axis properties and title
-    ds_diag.attrs['x_axis'] = idx
-    ds_diag.attrs['x_ticklabels'] = xlabels
-    ds_diag.attrs['x_mesh'] = np.tile(idx, (len(ds.level), 1))
-    ds_diag.attrs['xlab'] = '(Latitude [°N], Longitude [°E])'
+    ds_diag.attrs['x_axis'] = dist
+    ds_diag.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
+    ds_diag.attrs['xlab'] = 'Distance [km]'
     ds_diag.attrs['title'] = 'View from south: diagonal cross-section of {}\n'
 
     # used for filling the title text later
     ds_diag.attrs['cross_section_style'] = 'diagonal'
 
+    # TODO:
     # determine which wind is transect or perpendicular
-    diag_angle = angle(lon0, lat0, lon1, lat1)
+    diag_angle = angle(lon1, lat1, lon2, lat2)
 
     tw, pw = diag_wind(ds_diag.u, ds_diag.v, diag_angle)
     ds_diag['transect_wind'] = tw
     ds_diag['perp_wind'] = pw
 
     return ds_diag
+
