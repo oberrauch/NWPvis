@@ -32,9 +32,6 @@ from itertools import repeat
 from geopy import distance as gdistance
 from geographiclib import geodesic
 
-# local imports
-from calculations import angle, diag_wind
-
 
 def _lat_lon_to_distance(ds):
     """Distance between longitude/latitude coordinates.
@@ -73,14 +70,14 @@ def _lat_lon_to_distance(ds):
 
     # iteratively compute geodesic distance between subsequent points
     # Note: distance along the great circle is alternatively possible
-    dist = list()
-    dist.append(0)
+    distance_m = list()
+    distance_m.append(0)
     for p0, p1 in zip(points[:-1], points[1:]):
-        dist.append(gdistance.geodesic(p0, p1).km)
+        distance_m.append(gdistance.geodesic(p0, p1).m)
     # compute cumulative distance
-    dist = np.cumsum(dist)
+    distance_m = np.cumsum(distance_m)
 
-    return dist
+    return distance_m
 
 
 def get_input_data(path_sfc_geopotential=None,
@@ -190,13 +187,13 @@ def slice_lat(ds, lats, tolerance=0.05):
                     tolerance=tolerance).copy(deep=True)
 
     # compute distance between coordinate slices and add to dataset
-    dist = _lat_lon_to_distance(ds_lat)
-    ds_lat.attrs['dist'] = dist
+    distance_m = _lat_lon_to_distance(ds_lat)
+    ds_lat.attrs['distance_m'] = distance_m
 
     # use distance along slice as x axis
-    ds_lat.attrs['x_axis'] = dist
+    ds_lat.attrs['x_axis'] = distance_m * 1e-3
     # x-mesh by stacking the distances for each level above each other
-    ds_lat.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
+    ds_lat.attrs['x_mesh'] = np.tile(distance_m * 1e-3, (len(ds.level), 1))
     # specify x-axis label and title
     ds_lat.attrs['xlab'] = 'Distance [km]'
     ds_lat.attrs['title'] = 'Cross-section: {} along {:.1f}°N\n'
@@ -204,12 +201,12 @@ def slice_lat(ds, lats, tolerance=0.05):
     # specify whether the slice is along longitudes/latitudes or diagonal
     ds_lat.attrs['cross_section_style'] = 'straight'
 
-    # specify transect and perpendicular wind
-    ds_lat['transect_wind'] = ds_lat.u
+    # specify parallel and normal wind
+    ds_lat['parallel_wind'] = ds_lat.u
     # S/N wind - minus sign to make southerly (out of page) positive:
     # TODO: does this hold true for southern hemisphere?!
     # TODO: right hand coordinate system
-    ds_lat['perp_wind'] = -1 * ds_lat.v
+    ds_lat['normal_wind'] = -1 * ds_lat.v
 
     return ds_lat
 
@@ -246,13 +243,13 @@ def slice_lon(ds, lons, tolerance=0.05):
                     tolerance=tolerance).copy(deep=True)
 
     # compute distance between coordinate slices and add to dataset
-    dist = _lat_lon_to_distance(ds_lon)
-    ds_lon.attrs['dist'] = dist
+    distance_m = _lat_lon_to_distance(ds_lon)
+    ds_lon.attrs['distance_m'] = distance_m
 
     # use distance along slice as x axis
-    ds_lon.attrs['x_axis'] = dist
+    ds_lon.attrs['x_axis'] = distance_m * 1e-3
     # x-mesh by stacking the distances for each level above each other
-    ds_lon.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
+    ds_lon.attrs['x_mesh'] = np.tile(distance_m * 1e-3, (len(ds.level), 1))
     # specify x-axis label and title
     ds_lon.attrs['xlab'] = 'Distance [km]'
     ds_lon.attrs['title'] = 'Cross-section: {} along {:.1f}°E\n'
@@ -260,10 +257,10 @@ def slice_lon(ds, lons, tolerance=0.05):
     # specify whether the slice is along longitudes/latitudes or diagonal
     ds_lon.attrs['cross_section_style'] = 'straight'
 
-    # specify transect and perpendicular wind
+    # specify parallel and normal wind
     # TODO: right hand coordinate system
-    ds_lon['transect_wind'] = ds_lon.v
-    ds_lon['perp_wind'] = ds_lon.u
+    ds_lon['parallel_wind'] = ds_lon.v
+    ds_lon['normal_wind'] = ds_lon.u
 
     return ds_lon
 
@@ -311,16 +308,19 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     # compute the geodesic line (and distance) on the WGS84 ellipsoid
     line = geodesic.Geodesic.WGS84.InverseLine(lat1=lat1, lon1=lon1,
                                                lat2=lat2, lon2=lon2)
-    distance_m = line.s13
+    total_distance_m = line.s13
 
     # define distance along slice as index
-    dist = np.arange(0, distance_m, res_km * 1e3)
-    dist = np.append(dist, distance_m)
+    distance_m = np.arange(0, total_distance_m, res_km * 1e3)
+    distance_m = np.append(distance_m, total_distance_m)
     # compute coordinate points and azimuth angle along the geodesic line with
-    # with the given distance from each other, stored in a DataFrame
+    # with the given distance from each other, convert into Dataset
     x_axis = pd.DataFrame([[line.Position(d)['lat2'], line.Position(d)['lon2'],
-                            line.Position(d)['azi2']] for d in dist],
-                          index=dist / 1e3, columns=['lat', 'lon', 'azi'])
+                            line.Position(d)['azi2']] for d in distance_m],
+                          index=distance_m / 1e3,
+                          columns=['lat', 'lon', 'azi'])
+    x_axis.index.name = 'diag'
+    x_axis = x_axis.to_xarray()
 
     # Make sure that longitude in the cross-sections always increases, and
     # exchange starting points if it doesn't. This is necessary for correct
@@ -330,26 +330,24 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
 
     # Interpolate along the defined line. Passing DataArrays as the new
     # coordinate, makes the interpolation use their dimension for broadcasting
-    ds_diag = ds.interp(latitude=xr.DataArray(x_axis.lat, dims='diag'),
-                        longitude=xr.DataArray(x_axis.lon, dims='diag'))
+    ds_diag = ds.interp(latitude=x_axis.lat, longitude=x_axis.lon)
 
     # compute distance between coordinate slices and add to dataset
+    ds_diag['distance_m'] = x_axis.diag
 
     # add metadata: x-axis properties and title
-    ds_diag.attrs['x_axis'] = dist
-    ds_diag.attrs['x_mesh'] = np.tile(dist, (len(ds.level), 1))
+    ds_diag.attrs['x_axis'] = distance_m * 1e-3
+    ds_diag.attrs['x_mesh'] = np.tile(distance_m * 1e-3, (len(ds.level), 1))
     ds_diag.attrs['xlab'] = 'Distance [km]'
     ds_diag.attrs['title'] = 'View from south: diagonal cross-section of {}\n'
 
     # used for filling the title text later
     ds_diag.attrs['cross_section_style'] = 'diagonal'
 
-    # TODO:
-    # determine which wind is transect or perpendicular
-    diag_angle = angle(lon1, lat1, lon2, lat2)
-
-    tw, pw = diag_wind(ds_diag.u, ds_diag.v, diag_angle)
-    ds_diag['transect_wind'] = tw
-    ds_diag['perp_wind'] = pw
+    # compute parallel and normal wind for diagonal slice
+    ds_diag['parallel_wind'] = -ds_diag.v * np.cos(x_axis.azi) + \
+                               ds_diag.u * np.sin(x_axis.azi)
+    ds_diag['normal_wind'] = ds_diag.v * np.sin(x_axis.azi) + \
+                             ds_diag.u * np.cos(x_axis.azi)
 
     return ds_diag

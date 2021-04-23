@@ -69,8 +69,8 @@ class ProfilePlot:
     data to be plotted. It has methods to plot the following parameters:
     - contour lines of potential temperature
     - contour lines of equivalent potential temperature
-    - quiver field of transect wind (i.e., along the cross section)
-    - contour lines of perpendicular wind (i.e., into/out of the cross section)
+    - quiver field of parallel wind (i.e., along the cross section)
+    - contour lines of normal wind (i.e., into/out of the cross section)
     - altitude line of 0 degC temperature (as contours, hence can be multiple)
     Additionally, it has a method which takes care of all other plot elements
     (i.e., adding a title, labels, etc.) to finalize the figure.
@@ -108,11 +108,11 @@ class ProfilePlot:
         Plots isentropes (contour lines of potential temperature)
     plot_theta_contours(color='k')
         Plots contour lines of equivalent potential temperature
-    plot_transect_wind_quivers(nx=30, nz=35)
-        Plots quiver field of transect wind with nx horizontal grid points and
+    plot_parallel_wind_quivers(nx=30, nz=35)
+        Plots quiver field of parallel wind with nx horizontal grid points and
         nz vertical grid points.
-    plot_plot_perpendicular_wind_contour(color='k')
-        Plots contour lines of perpendicular (in/out of page) wind
+    plot_plot_normal_wind_contour(color='k')
+        Plots contour lines of normal (in/out of page) wind
     plot_zero_plot_zero_degree_line(color='w')
         Plots contour along the 0 degC altitude line(s)
 
@@ -260,10 +260,10 @@ class ProfilePlot:
         # add contour labels with no decimal points
         isentrope.clabel(fmt='%1.0f', fontsize=12)
 
-    def plot_transect_wind_quivers(self, nx=30, nz=35):
-        """Quiver field of transect wind
+    def plot_parallel_wind_quivers(self, nx=30, nz=35):
+        """Quiver field of parallel wind
 
-        Plot quivers of transect wind field, it is possible to determine how
+        Plot quivers of normal wind field, it is possible to determine how
         much quivers in x- and z- direction should be plotted.
 
         Parameters
@@ -284,7 +284,7 @@ class ProfilePlot:
         # plot quiver field
         wind_quiver = self.ax.quiver(self.x[::pz, ::px],
                                      self.data.geopotential_height[::pz, ::px],
-                                     self.data.transect_wind[::pz, ::px],
+                                     self.data.parallel_wind[::pz, ::px],
                                      self.data.w_ms[::pz, ::px],
                                      # TODO: check quivers, all horizontal and not angled
                                      color='black',
@@ -293,8 +293,8 @@ class ProfilePlot:
         self.ax.quiverkey(wind_quiver, 1.08, 1.01, 20,
                           label='20 m/s', labelpos='N')
 
-    def plot_perpendicular_wind_contour(self, color='k'):
-        """Plot contours of perpendicular wind field in steps of 5 m/s.
+    def plot_normal_wind_contour(self, color='k'):
+        """Plot contours of normal wind field in steps of 5 m/s.
 
         Parameters
         ----------
@@ -304,12 +304,12 @@ class ProfilePlot:
         # the contour levels are defined as multiples of 5 m/s and cover the
         # full range between minimum and maximum wind speed
         contour_step = 5
-        max_wind = float(abs(self.data.perp_wind).max().values)
+        max_wind = float(abs(self.data.normal_wind).max().values)
         max_wind = contour_step * round(max_wind / contour_step)
         levels = np.arange(-max_wind, max_wind + contour_step, contour_step)
         # plot contour lines
         wind_contour = self.ax.contour(self.x, self.data.geopotential_height,
-                                       self.data.perp_wind,
+                                       self.data.normal_wind,
                                        levels=levels,
                                        linewidths=1,
                                        colors=color)
@@ -339,7 +339,7 @@ class WindProfilePlot(ProfilePlot):
 
     Instancing a WindProfilePlot with a given dataset instantly creates a
     figure, with total (3D) wind speed as colored contour background, parallel
-    and perpendicular (2D) as quiver plot and contour lines, respectively, and
+    and normal (2D) as quiver plot and contour lines, respectively, and
     isentropes. Labels, title, ... are handled by the parent method
     `finish_figure_setting()` before adding a figure caption.
 
@@ -357,7 +357,7 @@ class WindProfilePlot(ProfilePlot):
     -------
     __init__(data, figsize=(12, 8)
         The constructor instances a ProfilePlot figure, adds the total wind
-        speed, transect and perpendicular wind, and isentropes. Corresponding
+        speed, parallel and normal wind, and isentropes. Corresponding
         labels, title, legend(s) and caption(s) are added.
 
     See Also
@@ -377,7 +377,7 @@ class WindProfilePlot(ProfilePlot):
 
         Instancing a WindProfilePlot with a given dataset instantly creates a
         figure, with total (3D) wind speed as colored contour background,
-        parallel and perpendicular (2D) as quiver plot and contour lines,
+        parallel and normal (2D) as quiver plot and contour lines,
         respectively, and isentropes. Labels, title, etc are handled by the
         parent method `finish_figure_setting()` before adding a figure caption.
 
@@ -408,19 +408,19 @@ class WindProfilePlot(ProfilePlot):
 
         # plot contour lines of potential temperature
         self.plot_theta_contours(color='w')
-        # plot quiver field of transect wind
-        self.plot_transect_wind_quivers()
-        # plot contour lines of perpendicular wind
-        self.plot_perpendicular_wind_contour()
+        # plot quiver field of parallel wind
+        self.plot_parallel_wind_quivers()
+        # plot contour lines of normal wind
+        self.plot_normal_wind_contour()
         # finish figure layout settings and labels
         self.finish_figure_settings()
 
         # add figure caption below
         self.fig.tight_layout()
-        figtext = 'ECMWF forecast: wind speed [m/s, vectors (transect plane)' \
-                  'and black contours (full lines out of page, \ndashed ' \
-                  'into the page); shading (scalar wind speed)], potential ' \
-                  'temperature [C, white contours]'
+        figtext = 'ECMWF forecast: wind speed [m/s]: vectors (transect ' \
+                  'plane) and black contours (full lines out of page, \n' \
+                  'dashed into the page); shading (scalar wind speed)], ' \
+                  'potential temperature [C, white contours]'
         self.fig.text(0.5, -0.1, figtext, transform=self.ax.transAxes,
                       ha='center', va='top', fontsize=12, wrap=True)
 
@@ -430,7 +430,7 @@ class TemperatureProfilePlot(ProfilePlot):
 
     Instancing a TemperatureProfilePlot with a given dataset instantly creates
     a figure, with air temperature as colored contour background, parallel and
-    perpendicular (2D) as quiver plot and contour lines, respectively,
+    normal (2D) as quiver plot and contour lines, respectively,
     isentropes and the zero degree altitude line. Labels, title, etc. are
     handled by the parent method `finish_figure_setting()` before adding a
     figure caption.
@@ -449,7 +449,7 @@ class TemperatureProfilePlot(ProfilePlot):
     -------
     __init__(data, figsize=(12, 8)
         The constructor instances a ProfilePlot figure, adds the total wind
-        speed, transect and perpendicular wind, and isentropes. Corresponding
+        speed, parallel and normal wind, and isentropes. Corresponding
         labels, title, legend(s) and caption(s) are added.
 
     See Also
@@ -469,7 +469,7 @@ class TemperatureProfilePlot(ProfilePlot):
 
         Instancing a TemperatureProfilePlot with a given dataset instantly
         creates a figure, with air temperature as colored contour background,
-        parallel and perpendicular (2D) as quiver plot and contour lines,
+        parallel and normal (2D) as quiver plot and contour lines,
         respectively, isentropes and the zero degree altitude line. Labels,
         title, etc. are handled by the parent method `finish_figure_setting()`
         before adding a figure caption.
@@ -501,10 +501,10 @@ class TemperatureProfilePlot(ProfilePlot):
 
         # plot contour lines of potential temperature
         self.plot_theta_contours(color='w')
-        # plot quiver field of transect wind
-        self.plot_transect_wind_quivers()
-        # plot contour lines of perpendicular wind
-        self.plot_perpendicular_wind_contour()
+        # plot quiver field of parallel wind
+        self.plot_parallel_wind_quivers()
+        # plot contour lines of normal wind
+        self.plot_normal_wind_contour()
         # add zero degree temperature line
         self.plot_zero_degree_line(color='blue')
 
@@ -514,7 +514,7 @@ class TemperatureProfilePlot(ProfilePlot):
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
         figtext = 'ECMWF forecast: temperature [°C, shading], 0°C line ' \
-                  '(blue), wind [m/s], vectors (transect plane), black \n' \
+                  '(blue), wind [m/s]: vectors (transect plane), black \n' \
                   'contours (full lines out of page, dashed into the ' \
                   'page)], potential temperature [C, white contours]'
         self.fig.text(ax_loc.xmin, 0.00, figtext,
@@ -526,7 +526,7 @@ class RhProfilePlot(ProfilePlot):
 
     Instancing a RhProfilePlot with a given dataset instantly creates a figure,
     with relative humidity as colored contour background, parallel and
-    perpendicular (2D) as quiver plot and contour lines, respectively,
+    normal (2D) as quiver plot and contour lines, respectively,
     and isentropes (equivalent potential temperature). Labels, title, etc. are
     handled by the parent method `finish_figure_setting()` before adding a
     figure caption.
@@ -545,7 +545,7 @@ class RhProfilePlot(ProfilePlot):
     -------
     __init__(data, figsize=(12, 8)
         The constructor instances a ProfilePlot figure, adds the total wind
-        speed, transect and perpendicular wind, and isentropes. Corresponding
+        speed, parallel and normal wind, and isentropes. Corresponding
         labels, title, legend(s) and caption(s) are added.
 
     See Also
@@ -565,7 +565,7 @@ class RhProfilePlot(ProfilePlot):
 
         Instancing a RhProfilePlot with a given dataset instantly creates a
         figure, with relative humidity as colored contour background, parallel
-        and perpendicular (2D) as quiver plot and contour lines, respectively,
+        and normal (2D) as quiver plot and contour lines, respectively,
         and isentropes (equivalent potential temperature). Labels, title, etc.
         are handled by the parent method `finish_figure_setting()` before
         adding a figure caption.
@@ -600,10 +600,10 @@ class RhProfilePlot(ProfilePlot):
 
         # plot contour lines of equivalent potential temperature
         self.plot_theta_e_contours()
-        # plot quiver field of transect wind
-        self.plot_transect_wind_quivers()
-        # plot contour lines of perpendicular wind
-        self.plot_perpendicular_wind_contour()
+        # plot quiver field of parallel wind
+        self.plot_parallel_wind_quivers()
+        # plot contour lines of normal wind
+        self.plot_normal_wind_contour()
 
         # finish figure layout settings and labels
         self.finish_figure_settings()
@@ -611,7 +611,7 @@ class RhProfilePlot(ProfilePlot):
         self.fig.tight_layout()
         ax_loc = self.fig.axes[0].get_position()
         figtext = 'ECMWF forecast: relative humidity (shading), wind speed ' \
-                  '[m/s], vectors (transect plane), black contours \n(full ' \
+                  '[m/s]: vectors (transect plane), black contours \n(full ' \
                   'lines out of page, dashed into the page), equivalent ' \
                   'potential temperature [C, black contours]'
         self.fig.text(ax_loc.xmin, 0.00, figtext,
@@ -647,10 +647,10 @@ class StabilityProfilePlot(ProfilePlot):
 
         # plot contour lines of equivalent potential temperature
         self.plot_theta_e_contours('black')
-        # plot quiver field of transect wind
-        self.plot_transect_wind_quivers()
-        # plot contour lines of perpendicular wind
-        self.plot_perpendicular_wind_contour()
+        # plot quiver field of parallel wind
+        self.plot_parallel_wind_quivers()
+        # plot contour lines of normal wind
+        self.plot_normal_wind_contour()
 
         # finish figure layout settings and labels
         self.finish_figure_settings()
