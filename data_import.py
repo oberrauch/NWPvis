@@ -24,9 +24,10 @@ Author(s): Alzbeta Medvedova, Moritz Oberrauch
 """
 
 # external libraries
-import xarray as xr
+
 import numpy as np
-import math
+import pandas as pd
+import xarray as xr
 from itertools import repeat
 from geopy import distance as gdistance
 from geographiclib import geodesic
@@ -60,11 +61,11 @@ def _lat_lon_to_distance(ds):
     lats = ds.latitude.values
     lons = ds.longitude.values
     if lats.size == lons.size:
-        points = np.array(list(zip(lats, lons)))
+        points = np.columnstack((lats, lons))
     elif lats.size == 1:
-        points = np.array(list(zip(repeat(lats), lons)))
+        points = np.columnstack((repeat(lats), lons))
     elif lons.size == 1:
-        points = np.array(list(zip(lats, repeat(lons))))
+        points = np.columnstack((lats, repeat(lons)))
     else:
         raise ValueError(
             "Latitudes and longitudes must be either be of same length "
@@ -270,6 +271,7 @@ def slice_lon(ds, lons, tolerance=0.05):
 def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     """
     TODO: docstring
+    TODO: rename to slice, since it can be along constant lon/lats as well
 
     Selects a slice of data from the dataset along a diagonal defined by two
     points - their longitude and latitude
@@ -311,17 +313,14 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
                                                lat2=lat2, lon2=lon2)
     distance_m = line.s13
 
-    # compute coordinates of points along the geodesic line with
-    # with the given distance from each other
-    lats = list()
-    lons = list()
-    for d in np.arange(0, distance_m, res_km*1e3):
-        pos = line.Position(d)
-        lats.append(pos['lat2'])
-        lons.append(pos['lon2'])
-    # add end position to list
-    lats.append(lat2)
-    lons.append(lon2)
+    # define distance along slice as index
+    dist = np.arange(0, distance_m, res_km * 1e3)
+    dist = np.append(dist, distance_m)
+    # compute coordinate points and azimuth angle along the geodesic line with
+    # with the given distance from each other, stored in a DataFrame
+    x_axis = pd.DataFrame([[line.Position(d)['lat2'], line.Position(d)['lon2'],
+                            line.Position(d)['azi2']] for d in dist],
+                          index=dist / 1e3, columns=[['lat', 'lon', 'azi']])
 
     # Make sure that longitude in the cross-sections always increases, and
     # exchange starting points if it doesn't. This is necessary for correct
@@ -329,20 +328,12 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     # bearing angle from 0 to 180 deg
     # TODO: right hand coordinate system
 
-    # Get an array lat/lon pairs to be used as plot labels
-    latlon_pairs = np.column_stack((lats, lons))
-    xlabels = list(map(tuple, np.round(latlon_pairs, 2)))
-
-    # Get cross-section locations as xr.DataArrays: used for interpolation
-    lats = xr.DataArray(lats, dims='diag')
-    lons = xr.DataArray(lons, dims='diag')
-
-    # Interpolate along the defined line
-    ds_diag = ds.interp(latitude=lats, longitude=lons).copy()
+    # Interpolate along the defined line. Passing DataArrays as the new
+    # coordinate, makes the interpolation use their dimension for broadcasting
+    ds_diag = ds.interp(latitude=xr.DataArray(x_axis.lat, dims='diag'),
+                        longitude=xr.DataArray(x_axis.lon, dims='diag'))
 
     # compute distance between coordinate slices and add to dataset
-    dist = _lat_lon_to_distance(ds_diag)
-    ds_diag.attrs['dist'] = dist
 
     # add metadata: x-axis properties and title
     ds_diag.attrs['x_axis'] = dist
@@ -362,4 +353,3 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     ds_diag['perp_wind'] = pw
 
     return ds_diag
-
