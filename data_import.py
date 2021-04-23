@@ -320,7 +320,7 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     # with the given distance from each other, stored in a DataFrame
     x_axis = pd.DataFrame([[line.Position(d)['lat2'], line.Position(d)['lon2'],
                             line.Position(d)['azi2']] for d in dist],
-                          index=dist / 1e3, columns=[['lat', 'lon', 'azi']])
+                          index=dist / 1e3, columns=['lat', 'lon', 'azi'])
 
     # Make sure that longitude in the cross-sections always increases, and
     # exchange starting points if it doesn't. This is necessary for correct
