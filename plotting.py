@@ -79,7 +79,7 @@ class ProfilePlot:
     ----------
     data : xr.Dataset
         Dateset containing all the variables that can/will be plotted
-    x : numpy.ndarray
+    grid : numpy.ndarray
         The mesh grid used for plotting the transect, using geopotential height
         as vertical coordinate and longitude/latitude as horizontal
         coordinates. The grid is computed during the slicing, see data_import
@@ -135,13 +135,13 @@ class ProfilePlot:
         """
         # store data as instance attribute
         self.data = data
-        # get computed mesh grid
-        self.x = data.x_mesh
+        # compute grid
+        self.grid = np.tile(data.distance_km, (len(data.level), 1))
 
         # store coordinates of latitude, longitude and topography as attributes
         self.lat = self.data.latitude.values
         self.lon = self.data.longitude.values
-        self.topo = self.data.z.values / constants.G
+        self.topo = self.data.z.values * 1e-3 / constants.G
 
         # define empty attributes which will be set later
         self.title = ''
@@ -149,40 +149,35 @@ class ProfilePlot:
         # initiate figure
         self.fig, self.ax = plt.subplots(figsize=figsize)
 
-    def finish_figure_settings(self):
+    def finish_figure_settings(self, vertical_limit=12):
         """Finalize the figure after plotting selected variables by:
 
         - Plotting the topography to the vertical cross-section
-        - Adding title, axes labels, x-ticks and x-tick labels
+        - Adding title, axes labels, grid-ticks and grid-tick labels
         - Setting axes limits
         - Adding additional information as text, like time since model run
         """
         # plot topography
-        self.ax.fill_between(self.data.x_axis, self.topo, 0, color='k')
-
-        # different settings for normal/diagonal cross-sections
-        if self.data.cross_section_style == 'diagonal':
-            # x-ticks + labels
-            # self.ax.set_xticks(self.data.x_axis[::11])
-            # self.ax.set_xticklabels(self.data.x_ticklabels[::11], rotation=20)
-            # title format
-            self.title = self.data.title.format(self.varname)
-        elif self.data.cross_section_style == 'straight':
-            # title format
-            if "Latitude" in self.data.xlab:
-                self.title = self.data.title.format(self.varname,
-                                                    self.data.longitude.values)
-            elif "Longitude" in self.data.xlab:
-                self.title = self.data.title.format(self.varname,
-                                                    self.data.latitude.values)
+        self.ax.fill_between(self.data.distance_km, self.topo, 0, color='k')
 
         # axes labels
-        self.ax.set_xlabel(self.data.xlab, fontsize=14)
-        self.ax.set_ylabel('Altitude [m]', fontsize=14)
+        self.ax.set_xlabel('Distance [km]', fontsize=14)
+        self.ax.set_ylabel('Altitude [km]', fontsize=14)
         # set limit y-axis to 0 and 12 km
-        self.ax.set_ylim(0, 12000)
+        self.ax.set_ylim(0, vertical_limit)
+
+        # add start and end coordinates to the x-tick labels
+        self.ax.text(-0.05, -0.05,
+                     '({:.2f}°N {:.2f}°E)'.format(self.lat.min(),
+                                                  self.lon.min()),
+                     transform=self.ax.transAxes, ha='left')
+        self.ax.text(1.05, -0.05,
+                     '({:.2f}°N {:.2f}°E)'.format(self.lat.max(),
+                                                  self.lon.max()),
+                     transform=self.ax.transAxes, ha='right')
 
         # figure title: add new empty line for text with dates + time
+        # TODO: set title for each sub class
         self.ax.set_title(self.title, fontsize=16)
 
         # Compute different timestamps and time differences
@@ -227,8 +222,8 @@ class ProfilePlot:
         levels = np.arange(-100, 100 + contour_step, contour_step)
 
         # plot contours of potential temperature (isentropes)
-        isentrope = self.ax.contour(self.x,
-                                    self.data.geopotential_height,
+        isentrope = self.ax.contour(self.grid,
+                                    self.data.geopotential_height * 1e-3,
                                     self.data.theta - constants.TEMP_0,
                                     levels=levels,
                                     colors=color,
@@ -251,8 +246,8 @@ class ProfilePlot:
         levels = np.arange(-100, 100 + contour_step, contour_step)
 
         # plot contours of potential temperature (isentropes)
-        isentrope = self.ax.contour(self.x,
-                                    self.data.geopotential_height,
+        isentrope = self.ax.contour(self.grid,
+                                    self.data.geopotential_height * 1e-3,
                                     self.data.theta_e - constants.TEMP_0,
                                     levels=levels,
                                     colors=color,
@@ -264,26 +259,27 @@ class ProfilePlot:
         """Quiver field of parallel wind
 
         Plot quivers of normal wind field, it is possible to determine how
-        much quivers in x- and z- direction should be plotted.
+        much quivers in grid- and z- direction should be plotted.
 
         Parameters
         ----------
         nx: int, optional, default=30
-            Number of quivers along the x-direction
+            Number of quivers along the grid-direction
         nz: int, optional, default=35
             Number of quivers along the z-direction
 
         """
         # Plotting quivers at every grid point is too messy. Hence, a quiver is
         # plotted only on every p-th grid point until the given number of
-        # quivers in x and z direction (nx, ny) are full
-        nz_all, nx_all = self.x.shape
+        # quivers in grid and z direction (nx, ny) are full
+        nz_all, nx_all = self.grid.shape
         px = int(round(nx_all / nx))
         pz = int(round(nz_all / nz))
 
         # plot quiver field
-        wind_quiver = self.ax.quiver(self.x[::pz, ::px],
-                                     self.data.geopotential_height[::pz, ::px],
+        wind_quiver = self.ax.quiver(self.grid[::pz, ::px],
+                                     self.data.geopotential_height[::pz,
+                                     ::px] * 1e-3,
                                      self.data.parallel_wind[::pz, ::px],
                                      self.data.w_ms[::pz, ::px],
                                      # TODO: check quivers, all horizontal and not angled
@@ -308,7 +304,8 @@ class ProfilePlot:
         max_wind = contour_step * round(max_wind / contour_step)
         levels = np.arange(-max_wind, max_wind + contour_step, contour_step)
         # plot contour lines
-        wind_contour = self.ax.contour(self.x, self.data.geopotential_height,
+        wind_contour = self.ax.contour(self.grid,
+                                       self.data.geopotential_height * 1e-3,
                                        self.data.normal_wind,
                                        levels=levels,
                                        linewidths=1,
@@ -326,8 +323,8 @@ class ProfilePlot:
         color: string, optional, default='w'
             color for the contour lines, default is white
         """
-        zero_temp_line = self.ax.contour(self.x,
-                                         self.data.geopotential_height,
+        zero_temp_line = self.ax.contour(self.grid,
+                                         self.data.geopotential_height * 1e-3,
                                          self.data.t - constants.TEMP_0,
                                          levels=[0.0],
                                          colors=color,
@@ -393,8 +390,8 @@ class WindProfilePlot(ProfilePlot):
         super(WindProfilePlot, self).__init__(data, figsize)
 
         # Plot total wind speed (disregarding direction) as background
-        bcg = self.ax.contourf(self.x,
-                               self.data.geopotential_height,
+        bcg = self.ax.contourf(self.grid,
+                               self.data.geopotential_height * 1e-3,
                                self.data.wspd,
                                levels=20,
                                cmap=cmo.haline_r,
@@ -486,8 +483,8 @@ class TemperatureProfilePlot(ProfilePlot):
         super(TemperatureProfilePlot, self).__init__(data)
 
         # Background specific for the temperature figure
-        bcg = self.ax.contourf(self.x,
-                               self.data.geopotential_height,
+        bcg = self.ax.contourf(self.grid,
+                               self.data.geopotential_height * 1e-3,
                                self.data.t - constants.TEMP_0,
                                levels=20,
                                cmap=cmo.thermal,
@@ -580,13 +577,13 @@ class RhProfilePlot(ProfilePlot):
         # initialize ProfilePlot parent class
         super(RhProfilePlot, self).__init__(data, figsize)
 
-        # the contour levels are defined as in 10% steps from 0%x to 100%
+        # the contour levels are defined as in 10% steps from 0%grid to 100%
         contour_step = 10
         levels = np.arange(0, 100, step=contour_step)
 
         # Background specific for the relative humidity figure
-        bcg = self.ax.contourf(self.x,
-                               self.data.geopotential_height,
+        bcg = self.ax.contourf(self.grid,
+                               self.data.geopotential_height * 1e-3,
                                self.data.rh,
                                levels=levels,
                                cmap='Greens',
@@ -633,8 +630,8 @@ class StabilityProfilePlot(ProfilePlot):
         super(StabilityProfilePlot, self).__init__(data)
 
         # Background specific for the relative humidity figure
-        bcg = self.ax.contourf(self.x,
-                               self.data.geopotential_height,
+        bcg = self.ax.contourf(self.grid,
+                               self.data.geopotential_height * 1e-3,
                                self.data.N_m,
                                levels=np.arange(-4e-4, 4e-4, 4e-5),
                                cmap='RdGy',
@@ -677,8 +674,8 @@ class PrecipitationProfilePlot(ProfilePlot):
         '''
         Plots specific cloud liquid / ice water content as filled contours
         '''
-        water = self.ax.contourf(self.x,
-                                 self.data.geopotential_height,
+        water = self.ax.contourf(self.grid,
+                                 self.data.geopotential_height * 1e-3,
                                  self.data.clwc,
                                  levels=np.array([0.05, 0.1, 0.2, 0.5]) * 1e-3,
                                  cmap='Greys',
@@ -686,8 +683,8 @@ class PrecipitationProfilePlot(ProfilePlot):
                                  alpha=0.8,
                                  antialiased=True)
 
-        ice = self.ax.contourf(self.x,
-                               self.data.geopotential_height,
+        ice = self.ax.contourf(self.grid,
+                               self.data.geopotential_height * 1e-3,
                                self.data.ciwc,
                                levels=np.array([0.05, 0.1, 0.2, 0.5]) * 1e-3,
                                cmap='Blues',

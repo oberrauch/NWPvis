@@ -25,10 +25,10 @@ Author(s): Alzbeta Medvedova, Moritz Oberrauch
 
 # external libraries
 
+import numbers
 import numpy as np
 import pandas as pd
 import xarray as xr
-from itertools import repeat
 from geopy import distance as gdistance
 from geographiclib import geodesic
 
@@ -58,11 +58,11 @@ def _lat_lon_to_distance(ds):
     lats = ds.latitude.values
     lons = ds.longitude.values
     if lats.size == lons.size:
-        points = np.columnstack((lats, lons))
+        points = np.column_stack((lats, lons))
     elif lats.size == 1:
-        points = np.columnstack((repeat(lats), lons))
+        points = np.column_stack((np.repeat(lats, len(lons)), lons))
     elif lons.size == 1:
-        points = np.columnstack((lats, repeat(lons)))
+        points = np.column_stack((lats, np.repeat(lons, len(lats))))
     else:
         raise ValueError(
             "Latitudes and longitudes must be either be of same length "
@@ -70,14 +70,14 @@ def _lat_lon_to_distance(ds):
 
     # iteratively compute geodesic distance between subsequent points
     # Note: distance along the great circle is alternatively possible
-    distance_m = list()
-    distance_m.append(0)
+    distance_km = list()
+    distance_km.append(0)
     for p0, p1 in zip(points[:-1], points[1:]):
-        distance_m.append(gdistance.geodesic(p0, p1).m)
+        distance_km.append(gdistance.geodesic(p0, p1).km)
     # compute cumulative distance
-    distance_m = np.cumsum(distance_m)
+    distance_km = np.cumsum(distance_km)
 
-    return distance_m
+    return distance_km
 
 
 def get_input_data(path_sfc_geopotential=None,
@@ -155,7 +155,7 @@ def get_input_data(path_sfc_geopotential=None,
     return data
 
 
-def slice_lat(ds, lats, tolerance=0.05):
+def slice_lat(ds, lat, tolerance=0.05):
     """Slice along latitudes.
 
     Selects data from the dataset along given lines of constant latitude and
@@ -170,7 +170,7 @@ def slice_lat(ds, lats, tolerance=0.05):
     ----------
     ds : xr.Dataset
         Dataset to be sliced
-    lats : array-like
+    lat : array-like
         List of latitudes as float
     tolerance : float, optional, default=0.05
         Maximum distance between specified latitudes and valid values
@@ -181,37 +181,28 @@ def slice_lat(ds, lats, tolerance=0.05):
         Subset of input data with added plotting attributes
 
     """
+    # only slice along a single longitude (for now)
+    if not isinstance(lat, numbers.Number):
+        # TODO: find better solution
+        raise ValueError('You can only slice along a single latitude.')
+
     # subset dataset
-    ds_lat = ds.sel(latitude=lats,
+    ds_lat = ds.sel(latitude=lat,
                     method='nearest',
                     tolerance=tolerance).copy(deep=True)
 
     # compute distance between coordinate slices and add to dataset
-    distance_m = _lat_lon_to_distance(ds_lat)
-    ds_lat.attrs['distance_m'] = distance_m
-
-    # use distance along slice as x axis
-    ds_lat.attrs['x_axis'] = distance_m * 1e-3
-    # x-mesh by stacking the distances for each level above each other
-    ds_lat.attrs['x_mesh'] = np.tile(distance_m * 1e-3, (len(ds.level), 1))
-    # specify x-axis label and title
-    ds_lat.attrs['xlab'] = 'Distance [km]'
-    ds_lat.attrs['title'] = 'Cross-section: {} along {:.1f}°N\n'
-
-    # specify whether the slice is along longitudes/latitudes or diagonal
-    ds_lat.attrs['cross_section_style'] = 'straight'
+    distance_km = _lat_lon_to_distance(ds_lat)
+    ds_lat = ds_lat.assign_coords(distance_km=('longitude', distance_km))
 
     # specify parallel and normal wind
     ds_lat['parallel_wind'] = ds_lat.u
-    # S/N wind - minus sign to make southerly (out of page) positive:
-    # TODO: does this hold true for southern hemisphere?!
-    # TODO: right hand coordinate system
-    ds_lat['normal_wind'] = -1 * ds_lat.v
+    ds_lat['normal_wind'] = ds_lat.v
 
     return ds_lat
 
 
-def slice_lon(ds, lons, tolerance=0.05):
+def slice_lon(ds, lon, tolerance=0.05):
     """Slice along longitudes.
 
     Selects data from the dataset along given lines of constant longitudes and
@@ -226,7 +217,7 @@ def slice_lon(ds, lons, tolerance=0.05):
     ----------
     ds : xr.Dataset
         Dataset to be sliced
-    lons : array-like
+    lon : array-like
         List of latitudes as float
     tolerance : float, optional, default=0.05
         Maximum distance between specified longitudes and valid values
@@ -237,29 +228,22 @@ def slice_lon(ds, lons, tolerance=0.05):
         Subset of input data with added plotting attributes
 
     """
+    # only slice along a single longitude (for now)
+    if not isinstance(lon, numbers.Number):
+        # TODO: find better solution
+        raise ValueError('You can only slice along a single longitude.')
+
     # subset dataset
-    ds_lon = ds.sel(longitude=lons,
+    ds_lon = ds.sel(longitude=lon,
                     method='nearest',
                     tolerance=tolerance).copy(deep=True)
 
     # compute distance between coordinate slices and add to dataset
-    distance_m = _lat_lon_to_distance(ds_lon)
-    ds_lon.attrs['distance_m'] = distance_m
-
-    # use distance along slice as x axis
-    ds_lon.attrs['x_axis'] = distance_m * 1e-3
-    # x-mesh by stacking the distances for each level above each other
-    ds_lon.attrs['x_mesh'] = np.tile(distance_m * 1e-3, (len(ds.level), 1))
-    # specify x-axis label and title
-    ds_lon.attrs['xlab'] = 'Distance [km]'
-    ds_lon.attrs['title'] = 'Cross-section: {} along {:.1f}°E\n'
-
-    # specify whether the slice is along longitudes/latitudes or diagonal
-    ds_lon.attrs['cross_section_style'] = 'straight'
+    distance_km = _lat_lon_to_distance(ds_lon)
+    ds_lon = ds_lon.assign_coords(distance_km=('latitude', distance_km))
 
     # specify parallel and normal wind
-    # TODO: right hand coordinate system
-    ds_lon['parallel_wind'] = ds_lon.v
+    ds_lon['parallel_wind'] = -ds_lon.v
     ds_lon['normal_wind'] = ds_lon.u
 
     return ds_lon
@@ -268,7 +252,7 @@ def slice_lon(ds, lons, tolerance=0.05):
 def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     """
     TODO: docstring
-    TODO: rename to slice, since it can be along constant lon/lats as well
+    TODO: rename to slice geodesic, since it can be along constant lon/lats
 
     Selects a slice of data from the dataset along a diagonal defined by two
     points - their longitude and latitude
@@ -319,24 +303,12 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
                             line.Position(d)['azi2']] for d in distance_m],
                           index=distance_m / 1e3,
                           columns=['lat', 'lon', 'azi'])
-    x_axis.index.name = 'diag'
+    x_axis.index.name = 'distance_km'
     x_axis = x_axis.to_xarray()
 
     # Interpolate along the defined line. Passing DataArrays as the new
     # coordinate, makes the interpolation use their dimension for broadcasting
     ds_diag = ds.interp(latitude=x_axis.lat, longitude=x_axis.lon)
-
-    # compute distance between coordinate slices and add to dataset
-    ds_diag['distance_m'] = x_axis.diag
-
-    # add metadata: x-axis properties and title
-    ds_diag.attrs['x_axis'] = distance_m * 1e-3
-    ds_diag.attrs['x_mesh'] = np.tile(distance_m * 1e-3, (len(ds.level), 1))
-    ds_diag.attrs['xlab'] = 'Distance [km]'
-    ds_diag.attrs['title'] = 'View from south: diagonal cross-section of {}\n'
-
-    # used for filling the title text later
-    ds_diag.attrs['cross_section_style'] = 'diagonal'
 
     # Compute parallel and normal wind for diagonal slice by rotating the axis.
     # Hence the azimuth angle must be converted into rotation angle

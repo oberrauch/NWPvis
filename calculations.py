@@ -539,4 +539,3 @@ def calculate_all_vars(ds):
     ds['wspd'] = windspeed(ds)  # Total scalar wind speed [m/s]
     # ds['N_m'] = N_moist_squared(ds)  # Moist Brunt-Vaisala frequency [1/s^2]
     return ds
-
