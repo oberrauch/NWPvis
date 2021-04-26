@@ -322,12 +322,6 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     x_axis.index.name = 'diag'
     x_axis = x_axis.to_xarray()
 
-    # Make sure that longitude in the cross-sections always increases, and
-    # exchange starting points if it doesn't. This is necessary for correct
-    # re-mapping of winds and plotting, and it also limits cross-section
-    # bearing angle from 0 to 180 deg
-    # TODO: right hand coordinate system
-
     # Interpolate along the defined line. Passing DataArrays as the new
     # coordinate, makes the interpolation use their dimension for broadcasting
     ds_diag = ds.interp(latitude=x_axis.lat, longitude=x_axis.lon)
@@ -344,10 +338,12 @@ def slice_diag(ds, lat1, lon1, lat2, lon2, res_km=None):
     # used for filling the title text later
     ds_diag.attrs['cross_section_style'] = 'diagonal'
 
-    # compute parallel and normal wind for diagonal slice
-    ds_diag['parallel_wind'] = -ds_diag.v * np.cos(x_axis.azi) + \
-                               ds_diag.u * np.sin(x_axis.azi)
-    ds_diag['normal_wind'] = ds_diag.v * np.sin(x_axis.azi) + \
-                             ds_diag.u * np.cos(x_axis.azi)
+    # Compute parallel and normal wind for diagonal slice by rotating the axis.
+    # Hence the azimuth angle must be converted into rotation angle
+    rot_angle = np.deg2rad(90) - x_axis.azi
+    ds_diag['parallel_wind'] = (ds_diag.u * np.cos(rot_angle) +
+                                ds_diag.v * np.sin(rot_angle))
+    ds_diag['normal_wind'] = (-ds_diag.u * np.sin(rot_angle) +
+                              ds_diag.v * np.cos(rot_angle))
 
     return ds_diag
