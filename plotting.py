@@ -19,6 +19,7 @@ import xarray as xr
 import cartopy.feature as cfeature
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+from matplotlib import colors, colorbar, cm
 import cmocean.cm as cmo
 
 # local dependencies
@@ -147,7 +148,9 @@ class ProfilePlot:
         self.title = ''
 
         # initiate figure
-        self.fig, self.ax = plt.subplots(figsize=figsize)
+        self.fig = plt.figure(figsize=figsize)
+        # self.ax = self.fig.add_axes((0.05, 0.07, 0.88, 0.88))
+        self.ax = self.fig.add_axes((0.05, 0.07, 0.93, 0.88))
 
     def finish_figure_settings(self, vertical_limit=12):
         """Finalize the figure after plotting selected variables by:
@@ -167,14 +170,14 @@ class ProfilePlot:
         self.ax.set_ylim(0, vertical_limit)
 
         # add start and end coordinates to the x-tick labels
-        self.ax.text(-0.05, -0.05,
-                     '({:.2f}°N {:.2f}°E)'.format(self.lat.min(),
-                                                  self.lon.min()),
-                     transform=self.ax.transAxes, ha='left')
-        self.ax.text(1.05, -0.05,
-                     '({:.2f}°N {:.2f}°E)'.format(self.lat.max(),
-                                                  self.lon.max()),
-                     transform=self.ax.transAxes, ha='right')
+        self.ax.text(0.01, 0.015,
+                     '{:.2f}°N {:.2f}°E'.format(self.lat.min(),
+                                                self.lon.min()),
+                     transform=self.fig.transFigure, ha='left', fontsize=14)
+        self.ax.text(0.99, 0.015,
+                     '{:.2f}°N {:.2f}°E'.format(self.lat.max(),
+                                                self.lon.max()),
+                     transform=self.fig.transFigure, ha='right', fontsize=14)
 
         # figure title: add new empty line for text with dates + time
         # TODO: set title for each sub class
@@ -182,7 +185,7 @@ class ProfilePlot:
 
         # Compute different timestamps and time differences
         # Initial time of model run
-        it = self.data.init_time
+        it = pd.to_datetime(self.data.init_time)
         # Current time of the given dataset (figure time)
         ft = pd.to_datetime(self.data.time.values)
         # Compute time difference between run time and figure time in hours
@@ -286,8 +289,10 @@ class ProfilePlot:
                                      color='black',
                                      width=0.002)
         # add one arrow next to the legend as scale
-        self.ax.quiverkey(wind_quiver, 1.08, 1.01, 20,
-                          label='20 m/s', labelpos='N')
+        self.ax.quiverkey(wind_quiver, 0.965, 0.965, 20,
+                          label='20 m/s', labelpos='N',
+                          labelsep=0.06,
+                          coordinates='figure')
 
     def plot_normal_wind_contour(self, color='k'):
         """Plot contours of normal wind field in steps of 5 m/s.
@@ -389,19 +394,31 @@ class WindProfilePlot(ProfilePlot):
         # initialize ProfilePlot parent class
         super(WindProfilePlot, self).__init__(data, figsize)
 
-        # Plot total wind speed (disregarding direction) as background
+        # define levels of wind speed contour plot
+        cmap = cmo.haline_r
+        wind_min = 0
+        wind_max = 60
+        wind_step = 2
+        levels = np.arange(wind_min, wind_max + wind_step, wind_step)
+        # Plot total wind speed as background
         bcg = self.ax.contourf(self.grid,
                                self.data.geopotential_height * 1e-3,
                                self.data.wspd,
-                               levels=20,
-                               cmap=cmo.haline_r,
+                               levels=levels,
+                               cmap=cmap,
                                extend='neither',
                                alpha=0.9,
                                antialiased=True)
-        # add colorbar with label
-        cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
-                           fontsize=14)
+        # add colorbar
+        cax, _ = colorbar.make_axes(self.ax, location='right', fraction=0.03,
+                                    shrink=1.0, aspect=30, pad=0.02)
+        cbar_norm = colors.BoundaryNorm(levels, cmap.N, extend='max')
+        cbar = self.fig.colorbar(cm.ScalarMappable(norm=cbar_norm, cmap=cmap),
+                                 cax=cax)
+        # Alternative options for colorbar positioning
+        # cax = self.fig.add_axes((0.95, 0.07, 0.02, 0.88))
+        # cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
+        #                    fontsize=14)
 
         # plot contour lines of potential temperature
         self.plot_theta_contours(color='w')
@@ -413,13 +430,13 @@ class WindProfilePlot(ProfilePlot):
         self.finish_figure_settings()
 
         # add figure caption below
-        self.fig.tight_layout()
-        figtext = 'ECMWF forecast: wind speed [m/s]: vectors (transect ' \
-                  'plane) and black contours (full lines out of page, \n' \
-                  'dashed into the page); shading (scalar wind speed)], ' \
-                  'potential temperature [C, white contours]'
-        self.fig.text(0.5, -0.1, figtext, transform=self.ax.transAxes,
-                      ha='center', va='top', fontsize=12, wrap=True)
+        # self.fig.tight_layout()
+        # figtext = 'ECMWF forecast: wind speed [m/s]: vectors (transect ' \
+        #           'plane) and black contours (full lines out of page, \n' \
+        #           'dashed into the page); shading (scalar wind speed)], ' \
+        #           'potential temperature [C, white contours]'
+        # self.fig.text(0.5, -0.1, figtext, transform=self.ax.transAxes,
+        #               ha='center', va='top', fontsize=12, wrap=True)
 
 
 class TemperatureProfilePlot(ProfilePlot):
@@ -508,14 +525,14 @@ class TemperatureProfilePlot(ProfilePlot):
         # finish figure layout settings and labels
         self.finish_figure_settings()
         # add figure caption below
-        self.fig.tight_layout()
-        ax_loc = self.fig.axes[0].get_position()
-        figtext = 'ECMWF forecast: temperature [°C, shading], 0°C line ' \
-                  '(blue), wind [m/s]: vectors (transect plane), black \n' \
-                  'contours (full lines out of page, dashed into the ' \
-                  'page)], potential temperature [C, white contours]'
-        self.fig.text(ax_loc.xmin, 0.00, figtext,
-                      ha='left', va='top', fontsize=12, wrap=True)
+        # self.fig.tight_layout()
+        # ax_loc = self.fig.axes[0].get_position()
+        # figtext = 'ECMWF forecast: temperature [°C, shading], 0°C line ' \
+        #           '(blue), wind [m/s]: vectors (transect plane), black \n' \
+        #           'contours (full lines out of page, dashed into the ' \
+        #           'page)], potential temperature [C, white contours]'
+        # self.fig.text(ax_loc.xmin, 0.00, figtext,
+        #               ha='left', va='top', fontsize=12, wrap=True)
 
 
 class RhProfilePlot(ProfilePlot):
@@ -605,14 +622,14 @@ class RhProfilePlot(ProfilePlot):
         # finish figure layout settings and labels
         self.finish_figure_settings()
         # add figure caption below
-        self.fig.tight_layout()
-        ax_loc = self.fig.axes[0].get_position()
-        figtext = 'ECMWF forecast: relative humidity (shading), wind speed ' \
-                  '[m/s]: vectors (transect plane), black contours \n(full ' \
-                  'lines out of page, dashed into the page), equivalent ' \
-                  'potential temperature [C, black contours]'
-        self.fig.text(ax_loc.xmin, 0.00, figtext,
-                      ha='left', va='top', fontsize=12, wrap=True)
+        # self.fig.tight_layout()
+        # ax_loc = self.fig.axes[0].get_position()
+        # figtext = 'ECMWF forecast: relative humidity (shading), wind speed ' \
+        #           '[m/s]: vectors (transect plane), black contours \n(full ' \
+        #           'lines out of page, dashed into the page), equivalent ' \
+        #           'potential temperature [C, black contours]'
+        # self.fig.text(ax_loc.xmin, 0.00, figtext,
+        #               ha='left', va='top', fontsize=12, wrap=True)
 
 
 class StabilityProfilePlot(ProfilePlot):

@@ -527,7 +527,7 @@ def calculate_all_vars(ds):
 
     """
     # add "initial time" attribute to calculate time differences later
-    ds.attrs['init_time'] = pd.to_datetime(ds.time[0].values)
+    ds.attrs['init_time'] = ds.time[0].values.astype(str)
 
     # add all calculated variables
     # TODO check calculations with MetPy / atmos packages?
