@@ -287,7 +287,8 @@ class ProfilePlot:
                                      self.data.w_ms[::pz, ::px],
                                      # TODO: check quivers, all horizontal and not angled
                                      color='black',
-                                     width=0.002)
+                                     width=0.002,
+                                     headlength=5)
         # add one arrow next to the legend as scale
         self.ax.quiverkey(wind_quiver, 0.965, 0.965, 20,
                           label='20 m/s', labelpos='N',
@@ -395,6 +396,7 @@ class WindProfilePlot(ProfilePlot):
         super(WindProfilePlot, self).__init__(data, figsize)
 
         # define levels of wind speed contour plot
+        # TODO: the following values could be given as parameters
         cmap = cmo.haline_r
         wind_min = 0
         wind_max = 60
@@ -406,19 +408,13 @@ class WindProfilePlot(ProfilePlot):
                                self.data.wspd,
                                levels=levels,
                                cmap=cmap,
-                               extend='neither',
+                               extend='max',
                                alpha=0.9,
                                antialiased=True)
         # add colorbar
-        cax, _ = colorbar.make_axes(self.ax, location='right', fraction=0.03,
-                                    shrink=1.0, aspect=30, pad=0.02)
-        cbar_norm = colors.BoundaryNorm(levels, cmap.N, extend='max')
-        cbar = self.fig.colorbar(cm.ScalarMappable(norm=cbar_norm, cmap=cmap),
-                                 cax=cax)
-        # Alternative options for colorbar positioning
-        # cax = self.fig.add_axes((0.95, 0.07, 0.02, 0.88))
-        # cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
-        #                    fontsize=14)
+        cax, _ = colorbar.make_axes(self.ax, location='right', fraction=0.035,
+                                    shrink=1.0, aspect=30, pad=0.015)
+        self.fig.colorbar(bcg, cax=cax)
 
         # plot contour lines of potential temperature
         self.plot_theta_contours(color='w')
@@ -499,19 +495,27 @@ class TemperatureProfilePlot(ProfilePlot):
         # initialize ProfilePlot parent class
         super(TemperatureProfilePlot, self).__init__(data)
 
-        # Background specific for the temperature figure
+        # define levels of temperature contour plot
+        cmap = cmo.thermal
+        temp_min = -50
+        temp_max = 40
+        temp_step = 2
+        levels = np.arange(temp_min, temp_max + temp_step, temp_step)
+
+        # Plot potential temperature in degC as background
         bcg = self.ax.contourf(self.grid,
                                self.data.geopotential_height * 1e-3,
                                self.data.t - constants.TEMP_0,
-                               levels=20,
-                               cmap=cmo.thermal,
-                               extend='neither',
+                               levels=levels,
+                               cmap=cmap,
+                               extend='both',
                                alpha=0.9,
                                antialiased=True)
-        # add colorbar with label
-        cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
-                           fontsize=14)
+        # add colorbar
+        cax, _ = colorbar.make_axes(self.ax, location='right', fraction=0.035,
+                                    shrink=1.0, aspect=30, pad=0.015)
+        # c_norm = colors.BoundaryNorm(levels, cmap.N, extend='both')
+        self.fig.colorbar(bcg, cax=cax)
 
         # plot contour lines of potential temperature
         self.plot_theta_contours(color='w')
@@ -607,17 +611,17 @@ class RhProfilePlot(ProfilePlot):
                                extend='max',
                                alpha=0.8,
                                antialiased=True)
-        # add colorbar and label
-        cbar = self.fig.colorbar(bcg)
-        cbar.ax.set_ylabel(self.varname.capitalize() + ' ' + self.units,
-                           fontsize=14)
+        # add colorbar
+        cax, _ = colorbar.make_axes(self.ax, location='right', fraction=0.035,
+                                    shrink=1.0, aspect=30, pad=0.015)
+        self.fig.colorbar(bcg, cax=cax)
 
         # plot contour lines of equivalent potential temperature
         self.plot_theta_e_contours()
-        # plot quiver field of parallel wind
-        self.plot_parallel_wind_quivers()
-        # plot contour lines of normal wind
-        self.plot_normal_wind_contour()
+        # # plot quiver field of parallel wind
+        # self.plot_parallel_wind_quivers()
+        # # plot contour lines of normal wind
+        # self.plot_normal_wind_contour()
 
         # finish figure layout settings and labels
         self.finish_figure_settings()
