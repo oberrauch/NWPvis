@@ -210,7 +210,7 @@ class ProfilePlot:
         self.ax.text(1.0, 1.01, txt_right, ha='right',
                      fontsize=14, transform=self.ax.transAxes)
 
-    def plot_theta_contours(self, color='k'):
+    def plot_theta_contours(self, color='k', ls='-', lw=0.7, contour_step=4):
         """Plot contour lines of potential temperature in degC.
         TODO: unit?!
 
@@ -219,10 +219,9 @@ class ProfilePlot:
         color: string, optional, default='k'
             color for the contour lines, default is black
         """
-        # the contour levels are defined as multiples of 4 K (or degC) and
-        # range from -100 degC to +100 degC
-        contour_step = 4
-        levels = np.arange(-100, 100 + contour_step, contour_step)
+        # the contour levels are defined as multiples of 4 K (default) and
+        # range from -200 degC to +200 degC
+        levels = np.arange(-200, 200 + contour_step, contour_step)
 
         # plot contours of potential temperature (isentropes)
         isentrope = self.ax.contour(self.grid,
@@ -230,11 +229,13 @@ class ProfilePlot:
                                     self.data.theta - constants.TEMP_0,
                                     levels=levels,
                                     colors=color,
-                                    linewidths=0.7)
+                                    linewidths=lw,
+                                    linestyles=ls)
         # add contour labels with no decimal points
         isentrope.clabel(fmt='%1.0f', fontsize=12)
 
-    def plot_theta_e_contours(self, color='k'):
+    def plot_theta_e_contours(self, color='k', ls='-', lw=0.7, contour_step=4,
+                              labels_spacing=2):
         """Plot contour lines of equivalent potential temperature in degC.
         TODO: unit?!
 
@@ -245,7 +246,6 @@ class ProfilePlot:
         """
         # the contour levels are defined as multiples of 4 K (or degC) and
         # range from -100 degC to +100 degC
-        contour_step = 4
         levels = np.arange(-100, 100 + contour_step, contour_step)
 
         # plot contours of potential temperature (isentropes)
@@ -254,9 +254,11 @@ class ProfilePlot:
                                     self.data.theta_e - constants.TEMP_0,
                                     levels=levels,
                                     colors=color,
-                                    linewidths=0.7)
+                                    linewidths=lw,
+                                    linestyles=ls)
         # add contour labels with no decimal points
-        isentrope.clabel(fmt='%1.0f', fontsize=12)
+        isentrope.clabel(fmt='%1.0f', levels=levels[::labels_spacing],
+                         fontsize=12)
 
     def plot_parallel_wind_quivers(self, nx=30, nz=35):
         """Quiver field of parallel wind
@@ -525,6 +527,119 @@ class TemperatureProfilePlot(ProfilePlot):
         self.plot_normal_wind_contour()
         # add zero degree temperature line
         self.plot_zero_degree_line(color='blue')
+
+        # finish figure layout settings and labels
+        self.finish_figure_settings()
+        # add figure caption below
+        # self.fig.tight_layout()
+        # ax_loc = self.fig.axes[0].get_position()
+        # figtext = 'ECMWF forecast: temperature [°C, shading], 0°C line ' \
+        #           '(blue), wind [m/s]: vectors (transect plane), black \n' \
+        #           'contours (full lines out of page, dashed into the ' \
+        #           'page)], potential temperature [C, white contours]'
+        # self.fig.text(ax_loc.xmin, 0.00, figtext,
+        #               ha='left', va='top', fontsize=12, wrap=True)
+
+
+class EquivalentPotentialTemperatureProfilePlot(ProfilePlot):
+    """Figure of air temperature in vertical transect
+
+    Instancing a TemperatureProfilePlot with a given dataset instantly creates
+    a figure, with air temperature as colored contour background, parallel and
+    normal (2D) as quiver plot and contour lines, respectively,
+    isentropes and the zero degree altitude line. Labels, title, etc. are
+    handled by the parent method `finish_figure_setting()` before adding a
+    figure caption.
+
+    Attributes
+    ----------
+    varname : string
+        Class attribute containing the name of the variable "temperature". Used
+        for legends, title and other.
+    units : string
+        Class attribute containing the corresponding unit of the class variable
+        "[°C]". Used for legends, title and other.
+
+
+    Methods
+    -------
+    __init__(data, figsize=(12, 8)
+        The constructor instances a ProfilePlot figure, adds the total wind
+        speed, parallel and normal wind, and isentropes. Corresponding
+        labels, title, legend(s) and caption(s) are added.
+
+    See Also
+    --------
+    ProfilePlot : parent class instancing figure and axes and hosting the
+        methods for adding wind and potential temperature contours and dealing
+        with labels and titles.
+
+    """
+
+    # Class attributes: specific for wind plot
+    varname = 'temperature'
+    units = '[°C]'
+
+    def __init__(self, data):
+        """Temperature plot constructor
+
+        Instancing a TemperatureProfilePlot with a given dataset instantly
+        creates a figure, with air temperature as colored contour background,
+        parallel and normal (2D) as quiver plot and contour lines,
+        respectively, isentropes and the zero degree altitude line. Labels,
+        title, etc. are handled by the parent method `finish_figure_setting()`
+        before adding a figure caption.
+
+        Parameters
+        ----------
+        data: xr.Dataset
+            Dataset containing the data to be plotted
+        figsize: int tuple, optional, default = (12, 8)
+            Size of the new figure
+
+        """
+        # initialize ProfilePlot parent class
+        super(EquivalentPotentialTemperatureProfilePlot, self).__init__(data)
+
+        # define levels of temperature contour plot
+        cmap = cmo.balance
+        temp_min = -28
+        temp_max = 92
+        temp_step = 2
+        levels = np.arange(temp_min, temp_max + temp_step, temp_step)
+
+        # Plot potential temperature in degC as background
+        bcg = self.ax.contourf(self.grid,
+                               self.data.geopotential_height * 1e-3,
+                               self.data.theta_e - constants.TEMP_0,
+                               levels=levels,
+                               cmap=cmap,
+                               extend='both',
+                               alpha=0.9,
+                               antialiased=True)
+        # add colorbar
+        cax, _ = colorbar.make_axes(self.ax, location='right', fraction=0.035,
+                                    shrink=1.0, aspect=30, pad=0.015)
+        # c_norm = colors.BoundaryNorm(levels, cmap.N, extend='both')
+        self.fig.colorbar(bcg, cax=cax)
+        #
+        # rrr = self.ax.contourf(self.grid,
+        #                        self.data.geopotential_height * 1e-3,
+        #                        self.data.rh,
+        #                        cmap=cmo.gray_r,
+        #                        levels=np.arange(0,100,10),
+        #                        extend='max',
+        #                        alpha=0.5)
+        # self.fig.colorbar(rrr, cax=cax)
+
+        # plot contour lines of potential temperature
+        self.plot_theta_e_contours(color='k', ls='--', contour_step=2)
+        # # plot quiver field of parallel wind
+        # self.plot_parallel_wind_quivers()
+        # # plot contour lines of normal wind
+        # self.plot_normal_wind_contour()
+        # # add zero degree temperature line
+        # self.plot_zero_degree_line(color='blue')
 
         # finish figure layout settings and labels
         self.finish_figure_settings()
