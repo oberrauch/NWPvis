@@ -210,13 +210,62 @@ class ProfilePlot:
         self.ax.text(1.0, 1.01, txt_right, ha='right',
                      fontsize=14, transform=self.ax.transAxes)
 
-    def plot_theta_contours(self, color='k', ls='-', lw=0.7, contour_step=4):
+    def plot_contours(self, variable, colors='k', ls='-', lw=1., levels=20,
+                      label_format=None, label_fs=12, label_levels=None,
+                      **kwargs):
+        """Wrapper of matplotlib.pyplot.contour.
+
+        Parameters
+        ----------
+        variable : str
+            Name of the variable to be plotted
+        colors : str or array-like, optional, default='k'
+            Color(s) of the contour lines, see matplotlib.pyplot.contour
+        ls : str or array-like, optional, default='-'
+            Line style(s) of the contour lines, see matplotlib.pyplot.contour
+        lw : float or array-like, optional, default=1.
+            Line width(s) of the contour lines, see matplotlib.pyplot.contour
+        levels : int or array-like, optional, default=20
+            Determines the number of levels (if int) or specific levels (if
+            array-like) of the contour lines, see matplotlib.pyplot.contour
+        label_format : matplotlib.tickerFormatter or str or callable or dict,
+            optional, default=None
+            Formatter for the level labels, see
+            matplotlib.contour.ContourLabeler.clabel for details. If none is
+            give, no labels are plotted.
+        label_fs : float, optional, default=12
+            Font size of the level labels
+        label_levels : int or array-like, optional, default=20
+            Levels that should be labeled: if array-like, must be a subset of
+            levels; if int n, every n-th level is labeled.
+        kwargs :
+            Key word arguments for the matplotlib.pyplot.contour and the
+            matplotlib.contour.ContourLabeler.clabel function.
+
+
+        """
+        # plot contours of potential temperature (isentropes)
+        isentrope = self.ax.contour(self.grid,
+                                    self.data.geopotential_height * 1e-3,
+                                    self.data[variable],
+                                    levels=levels,
+                                    colors=colors,
+                                    linewidths=lw,
+                                    linestyles=ls, **kwargs)
+        # add contour labels with no decimal points
+        if label_format:
+            if isinstance(label_levels, int):
+                label_levels = levels[::label_levels]
+            isentrope.clabel(fmt=label_format, fontsize=label_fs,
+                             levels=label_levels)
+
+    def plot_theta_contours(self, colors='k', ls='-', lw=0.7, contour_step=4):
         """Plot contour lines of potential temperature in degC.
         TODO: unit?!
 
         Parameters
         ----------
-        color: string, optional, default='k'
+        colors: string, optional, default='k'
             color for the contour lines, default is black
         """
         # the contour levels are defined as multiples of 4 K (default) and
@@ -228,20 +277,20 @@ class ProfilePlot:
                                     self.data.geopotential_height * 1e-3,
                                     self.data.theta - constants.TEMP_0,
                                     levels=levels,
-                                    colors=color,
+                                    colors=colors,
                                     linewidths=lw,
                                     linestyles=ls)
         # add contour labels with no decimal points
         isentrope.clabel(fmt='%1.0f', fontsize=12)
 
-    def plot_theta_e_contours(self, color='k', ls='-', lw=0.7, contour_step=4,
+    def plot_theta_e_contours(self, colors='k', ls='-', lw=0.7, contour_step=4,
                               labels_spacing=2):
         """Plot contour lines of equivalent potential temperature in degC.
         TODO: unit?!
 
         Parameters
         ----------
-        color: string, optional, default='k'
+        colors: string, optional, default='k'
             color for the contour lines, default is black
         """
         # the contour levels are defined as multiples of 4 K (or degC) and
@@ -253,7 +302,7 @@ class ProfilePlot:
                                     self.data.geopotential_height * 1e-3,
                                     self.data.theta_e - constants.TEMP_0,
                                     levels=levels,
-                                    colors=color,
+                                    colors=colors,
                                     linewidths=lw,
                                     linestyles=ls)
         # add contour labels with no decimal points
@@ -419,7 +468,7 @@ class WindProfilePlot(ProfilePlot):
         self.fig.colorbar(bcg, cax=cax)
 
         # plot contour lines of potential temperature
-        self.plot_theta_contours(color='w')
+        self.plot_theta_contours(colors='w')
         # plot quiver field of parallel wind
         self.plot_parallel_wind_quivers()
         # plot contour lines of normal wind
@@ -520,7 +569,7 @@ class TemperatureProfilePlot(ProfilePlot):
         self.fig.colorbar(bcg, cax=cax)
 
         # plot contour lines of potential temperature
-        self.plot_theta_contours(color='w')
+        self.plot_theta_contours(colors='w')
         # plot quiver field of parallel wind
         self.plot_parallel_wind_quivers()
         # plot contour lines of normal wind
@@ -633,7 +682,7 @@ class EquivalentPotentialTemperatureProfilePlot(ProfilePlot):
         # self.fig.colorbar(rrr, cax=cax)
 
         # plot contour lines of potential temperature
-        self.plot_theta_e_contours(color='k', ls='--', contour_step=2)
+        self.plot_theta_e_contours(colors='k', ls='--', contour_step=2)
         # # plot quiver field of parallel wind
         # self.plot_parallel_wind_quivers()
         # # plot contour lines of normal wind
