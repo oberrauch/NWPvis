@@ -152,7 +152,7 @@ class ProfilePlot:
         # self.ax = self.fig.add_axes((0.05, 0.07, 0.88, 0.88))
         self.ax = self.fig.add_axes((0.05, 0.07, 0.93, 0.88))
 
-    def finish_figure_settings(self, vertical_limit=12):
+    def finish_figure_settings(self, title=None, vertical_limit=12):
         """Finalize the figure after plotting selected variables by:
 
         - Plotting the topography to the vertical cross-section
@@ -162,6 +162,7 @@ class ProfilePlot:
         """
         # plot topography
         self.ax.fill_between(self.data.distance_km, self.topo, 0, color='k')
+        self.ax.plot(self.data.distance_km, self.topo, color='k', lw=1)
 
         # axes labels
         self.ax.set_xlabel('Distance [km]', fontsize=14)
@@ -180,7 +181,8 @@ class ProfilePlot:
                      transform=self.fig.transFigure, ha='right', fontsize=14)
 
         # figure title: add new empty line for text with dates + time
-        # TODO: set title for each sub class
+        if title:
+            self.title = title
         self.ax.set_title(self.title, fontsize=16)
 
         # Compute different timestamps and time differences
@@ -210,9 +212,9 @@ class ProfilePlot:
         self.ax.text(1.0, 1.01, txt_right, ha='right',
                      fontsize=14, transform=self.ax.transAxes)
 
-    def plot_contours(self, variable, colors='k', ls='-', lw=1., levels=20,
-                      label_format=None, label_fs=12, label_levels=None,
-                      **kwargs):
+    def plot_contour(self, variable, colors='k', ls='-', lw=1., levels=20,
+                     label_format=None, label_fs=12, label_levels=None,
+                     **kwargs):
         """Wrapper of matplotlib.pyplot.contour.
 
         Parameters
@@ -220,19 +222,17 @@ class ProfilePlot:
         variable : str
             Name of the variable to be plotted
         colors : str or array-like, optional, default='k'
-            Color(s) of the contour lines, see matplotlib.pyplot.contour
         ls : str or array-like, optional, default='-'
-            Line style(s) of the contour lines, see matplotlib.pyplot.contour
+            Line style(s) of the contour lines
         lw : float or array-like, optional, default=1.
-            Line width(s) of the contour lines, see matplotlib.pyplot.contour
+            Line width(s) of the contour lines
         levels : int or array-like, optional, default=20
             Determines the number of levels (if int) or specific levels (if
-            array-like) of the contour lines, see matplotlib.pyplot.contour
+            array-like) of the contour lines
         label_format : matplotlib.tickerFormatter or str or callable or dict,
             optional, default=None
-            Formatter for the level labels, see
-            matplotlib.contour.ContourLabeler.clabel for details. If none is
-            give, no labels are plotted.
+            Formatter for the level labels. If none is give, no labels are
+            plotted.
         label_fs : float, optional, default=12
             Font size of the level labels
         label_levels : int or array-like, optional, default=20
@@ -244,20 +244,54 @@ class ProfilePlot:
 
 
         """
-        # plot contours of potential temperature (isentropes)
-        isentrope = self.ax.contour(self.grid,
-                                    self.data.geopotential_height * 1e-3,
-                                    self.data[variable],
-                                    levels=levels,
-                                    colors=colors,
-                                    linewidths=lw,
-                                    linestyles=ls, **kwargs)
-        # add contour labels with no decimal points
+        # plot contour lines
+        contour = self.ax.contour(self.grid,
+                                  self.data.geopotential_height * 1e-3,
+                                  self.data[variable],
+                                  levels=levels,
+                                  colors=colors,
+                                  linewidths=lw,
+                                  linestyles=ls, **kwargs)
+        # add contour labels
         if label_format:
             if isinstance(label_levels, int):
                 label_levels = levels[::label_levels]
-            isentrope.clabel(fmt=label_format, fontsize=label_fs,
-                             levels=label_levels)
+            contour.clabel(fmt=label_format, fontsize=label_fs,
+                           levels=label_levels)
+
+    def plot_contourf(self, variable, cmap=None, colors=None, alpha=0.9,
+                      extend='neither', levels=20, **kwargs):
+        """Wrapper of matplotlib.pyplot.contourf.
+
+        Parameters
+        ----------
+        variable : str
+            Name of the variable to be plotted
+        cmap : str or `matplotlib.colors.Colormap`
+            Color map mapping the level values to colors.
+        colors : str or array-like, optional, default=None
+            Color(s) of the levels (lines and areas), overrides the colormap
+        alpha : float, optional, default=None
+            The alpha value between 0 (transparent) and 1 (opaque)
+        extend : {'neither', 'both', 'min', 'max'}, optional, default='neither'
+            Determines the coloring of values outside the defined levels
+        levels : int or array-like, optional, default=20
+            Determines the number of levels (if int) or specific levels (if
+            array-like) of the contour regions
+        kwargs :
+            Key word arguments for the matplotlib.pyplot.contour and the
+            matplotlib.contour.ContourLabeler.clabel function.
+
+
+        """
+        # plot contour areas
+        contour = self.ax.contourf(self.grid,
+                                   self.data.geopotential_height * 1e-3,
+                                   self.data[variable],
+                                   levels=levels,
+                                   cmap=cmap,
+                                   colors=colors,
+                                   extend=extend, **kwargs)
 
     def plot_theta_contours(self, colors='k', ls='-', lw=0.7, contour_step=4):
         """Plot contour lines of potential temperature in degC.
