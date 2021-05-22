@@ -60,6 +60,10 @@ References
  .. [Hobbs 2006]: Hobbs, P. V., and J. M. Wallace, 2006, Atmospheric Science:
     An Introductory Survey. 2nd ed. Academic Press, 504 pp.
 
+ .. [Davies-Jones 2009]: Davies-Jones, Robert, 2009, On Formulas for Equivalent
+    Potential Temperature, Monthly Weather Review, 137(9), 3137-3148.
+    https://doi.org/10.1175/2009MWR2774.1
+
  .. [Stull 2011]: Stull, R., 2011, Meteorology for Scientists & Engineers,
     3rd Edition. Univ. of British Columbia,  938 pp.,  ISBN 978-0-88865-178-5
 
@@ -68,8 +72,12 @@ References
 # build ins
 
 # external libraries
+from distutils.command.config import config
+
 import numpy as np
+import xarray as xr
 import pandas as pd
+from scipy.special import lambertw
 
 # local imports -
 import constants as const
@@ -77,7 +85,7 @@ import constants as const
 
 # %% DRY THERMODYNAMICS
 
-def theta_from_t_p(data):
+def potential_temperature(data):
     """Potential temperature
 
     Compute potential temperature theta at all levels
@@ -98,7 +106,7 @@ def theta_from_t_p(data):
     return theta
 
 
-def N_dry_from_p_theta(data):
+def dry_brunt_vaisala_frequency(data):
     # TODO: implement if needed
     # Calculate Brunt Vaisala frequency... need T, p or something?
     # What do I need here? MetPY has sigma... What's sigma?
@@ -107,7 +115,7 @@ def N_dry_from_p_theta(data):
 
     # dry: N = sqrt(g/theta * d(theta)/dz)
     raise NotImplementedError
-    theta = theta_from_t_p(data)
+    theta = potential_temperature(data)
     theta_vertical_gradient = 1
     brunt_vaisala_freq = np.sqrt(const.G / theta * theta_vertical_gradient)
     return brunt_vaisala_freq
@@ -132,7 +140,7 @@ def windspeed(data):
     """
     if 'w_ms' not in data.keys():
         # Compute vertical wind speed with respect to height if not in data
-        w = w_from_omega(data)
+        w = vertical_wind_speed(data)
     else:
         #
         w = data.w_ms
@@ -142,17 +150,72 @@ def windspeed(data):
     return wspd
 
 
+def mixing_ratio(data):
+    """Mixing ratio
+
+    Calculate mixing ratio from specific humidity.
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        dataset containing specific humidity [kg/kg] (data.q)
+
+    Returns
+    -------
+    float :
+        water vapor mixing ratio
+
+
+    Notes
+    -----
+    The specific humidity :math:`q` is the ratio of water vapor density (or
+    mass per unit volume) and the total air density. The (water vapor) mixing
+    ratio :math:`w` is the ratio between density of water vapor and density of
+    dry air. Hence one can be converted into the other like
+
+    .. math:: w = \frac{q}{1-q}
+
+    """
+    return data.q / (1 - data.q)
+
+
+def partial_pressure(data):
+    """Partial pressure of water vapor
+
+    Calculate partial pressure of water vapor, given the mixing ratio and total
+    air pressure.
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        dataset containing mixing ratio [kg/kg] (data.w) and total air pressure
+        of moist air [Pa] (data.p)
+
+    Returns
+    -------
+    float :
+        Partial pressure of water vapor [Pa]
+
+    Notes
+    -----
+    TODO: see [Hobbs 2006]_ Exercise 3.6 on page 80
+
+    """
+    # TODO: is data.p actually the pressure of moist air?!
+    return data.w + (data.w + const.EPSILON) * data.p
+
+
 def virtual_temperature(data):
     """Virtual temperature
 
-    Calculate approximated virtual temperature following Eq. 3.16 [Hobbs 2006]_
+    Calculate approximated virtual temperature following Eq. 3.60 [Hobbs 2006]_
     from temperature and mixing ratio.
 
     Parameters
     ----------
     data : xr.Dataset
         dataset containing temperature [K] (data.t) and mixing ratio [kg/kg]
-        (data.q)
+        (data.w)
 
     Returns
     -------
@@ -161,8 +224,6 @@ def virtual_temperature(data):
 
     Notes
     -----
-    TODO: check if variables are consistent with rest
-
     Virtual temperature accounts for water vapor when using the equation of
     state for ideal gases with the gas constant for dry air :math:`R_d`.
     Following [Hobbs 2006]_ it is defined as
@@ -183,11 +244,46 @@ def virtual_temperature(data):
 
     """
 
-    t_v = data['t'] * (1 + (const.R_WATER / const.R_DRY - 1.0) * data['q'])
+    t_v = data.t * (1. + (1. - const.EPSILON) / const.EPSILON * data.w)
     return t_v
 
 
-def es_from_t(data):
+def virtual_temperature_exact(data):
+    """Virtual temperature
+
+    Calculate virtual temperature following Eq. 3.16 [Hobbs 2006]_
+    from temperature, partial pressure of water vapor and air pressure.
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        dataset containing temperature [K] (data.t), partial pressure of water
+        vapor [Pa] (data.e) and total air pressure [Pa] (data.p)
+
+    Returns
+    -------
+    float:
+        virtual temperature [K]
+
+    Notes
+    -----
+
+    Virtual temperature accounts for water vapor when using the equation of
+    state for ideal gases with the gas constant for dry air :math:`R_d`.
+    Following [Hobbs 2006]_ it is defined as
+
+    .. math:: T_v = \frac{T}{1-\frac{e}{p}(1-\varepsilon)},
+
+    whereby :math:`T` is the air temperature, :math:`e` the partial pressure of
+    water vapor, :math:`p` the air pressure and :math:`\varepsilon = R_d/R_v`
+    the ratio between gas constant of dry air and water vapor.
+
+    """
+    t_v = data.t / (1 - (data.e / data.p * (1 - const.EPSILON)))
+    return t_v
+
+
+def saturation_pressure(data):
     """Saturation pressure of water vapor
 
     Parameters
@@ -212,7 +308,7 @@ def es_from_t(data):
     return es
 
 
-def rh_from_t_q_p(data):
+def relative_humidity(data, inplace=True):
     """Relative humidity
 
     Calculate relative humidity [%] from temperature [K], mixing ratio [kg/kg]
@@ -247,17 +343,19 @@ def rh_from_t_q_p(data):
 
     """
     # Calculate saturation vapor pressure from temperature
-    es = es_from_t(data)
+    es = saturation_pressure(data)
 
     # Calculate saturation mixing ratio
     qs = 0.622 * (es / (data.pressure - es))
 
     # Calculate relative humidity in percent
     rh = 100 * data.q / qs
+    if inplace:
+        data['rh'] = rh
     return rh
 
 
-def w_from_omega(data):
+def vertical_wind_speed(data):
     """Vertical wind speed with respect to height
 
     Convert vertical wind speed with respect to pressure [Pa/s] into that with
@@ -301,12 +399,12 @@ def w_from_omega(data):
 
     if 'rh' not in data.keys():
         # Calculate relative humidity if not in the data
-        rh = rh_from_t_q_p(data)
+        rh = relative_humidity(data)
     else:
         rh = data['rh']
 
     # Calculate partial pressure of water vapor
-    e = rh * es_from_t(data) * 1e-2
+    e = rh * saturation_pressure(data) * 1e-2
 
     # Compute air density accounting for water vapor
     rho_dry = (data.pressure - e) / (const.R_DRY * data.t)
@@ -318,11 +416,12 @@ def w_from_omega(data):
     return w_ms
 
 
-def T_lcl_from_T_rh(data):
-    """Temperature at lifting condensation level (LCL)
+def temperature_lcl(data, inplace=True):
+    """Temperature at lifting condensation level (LCL) TODO: adjust
 
     Calculate the absolute temperature at the lifting condensation level
-    following [Bolton 1980]_ Eq. 22.
+    following [Bolton 1980]_ Eq. 22. Also adds relative humidity to data, if
+    not present
 
     Parameters
     ----------
@@ -330,10 +429,126 @@ def T_lcl_from_T_rh(data):
         dataset containing temperature [K] (data.t), and either relative
         humidity [%] (data.rh) or pressure [Pa] (data.pressure) and mixing
         ratio [kg/kg] (data.q)in oder to compute the relative humidity
+    inplace : bool, optional, default=True
+        If True, add computed value to given dataset.
 
     Returns
     -------
-    T_lcl : xr.DataArray
+    temp_lcl : xr.DataArray
+        absolute temperature [K] at the LCL
+
+    Notes
+    -----
+
+    The function follows Eq. 22 from [Bolton 1960]_ which reads
+
+    .. math:: T_{LCL} = \frac{1}{\frac{1}{T - 55} - \frac{\ln(RH/100)}{2840}}
+        + 55.
+
+    """
+    # define constants/parameters
+
+    # specif heat capacity of water vapor at constant volume [J/kg/K]
+    c_vv = 1418
+    # specif heat capacity of water vapor at constant pressure [J/kg/K]
+    c_pv = c_vv + const.R_WATER
+    c_vl = 4119  # specif heat capacity of liquid water [J/kg/K]
+    c_vs = 1861  # specif heat capacity of solid water [J/kg/K]
+
+    c_va = 719  # specif heat capacity of dry air at constant volume [J/kg/K]
+    # specif heat capacity of dry air at constant pressure [J/kg/K]
+    c_pa = c_va + const.R_DRY
+
+    p_trip = 611.65  # triple-point vapor pressure [Pa]
+    temp_trip = 273.16  # triple-point temperature [K]
+    # difference in specific internal energy between water vapor and liquid at
+    # the triple-point [J/kg]
+    e_0v = 2.3740e6
+    # difference in specific internal energy between and liquid solid water at
+    # the triple-point [J/kg]
+    e_0s = 0.3337e6
+
+    def _es_liq(temp):
+        """Saturation vapor pressure over liquid water"""
+        exp = np.exp((e_0v - (c_vv - c_vl) * temp_trip)
+                     / const.R_WATER
+                     * (1 / temp_trip - 1 / temp))
+        es_liq = (p_trip
+                  * (temp / temp_trip) ** ((c_pv - c_vl) / const.R_WATER)
+                  * exp)
+        return es_liq
+
+    def _es_solid(temp):
+        """Saturation vapor pressure over solid ice"""
+        exp = np.exp((e_0v + e_0s - (c_vv - c_vs) * temp_trip)
+                     / const.R_WATER
+                     * (1 / temp_trip - 1 / temp))
+        es_solid = (p_trip *
+                    (temp / temp_trip) ** ((c_pv - c_vs) / const.R_WATER)
+                    * exp)
+        return es_solid
+
+    # calculate partial pressure of water vapor
+    e_water_vapor_liquid = data.rh / 100 * _es_liq(data.t)
+    e_water_vapor_liquid = e_water_vapor_liquid.where(
+        e_water_vapor_liquid < data.pressure)
+    e_water_vapor_solid = data.rh / 100 * _es_solid(data.t)
+    e_water_vapor_solid = e_water_vapor_solid.where(
+        e_water_vapor_solid < data.pressure)
+    # calculate and combine relative humidity and water vapor pressure with
+    # respect to liquid (T > T_trip) and with respect to solid (T < T_trip)
+    rhl = e_water_vapor_liquid / _es_liq(data.t)
+    rhs = e_water_vapor_solid / _es_liq(data.t)
+    rh = xr.where(data.t >= temp_trip, rhl, rhs)
+    e_water_vapor = xr.where(data.t >= temp_trip,
+                             e_water_vapor_liquid,
+                             e_water_vapor_solid)
+
+    # compute mass fraction of water vapor
+    q_v = (const.R_DRY
+           * e_water_vapor
+           / (const.R_WATER * data.pressure
+              + (const.R_DRY - const.R_WATER) * e_water_vapor))
+    # compute air parcels specific gas constant
+    r_air_parcel = (1 - q_v) * const.R_DRY + q_v * const.R_WATER
+    # compute air parcels specific heat capacity under constant pressure
+    c_p_air_parcel = (1 - q_v) * c_pa + q_v * c_pv
+
+    # calculate parameters
+    a_l = -(c_pv - c_vl) / const.R_WATER + c_p_air_parcel / r_air_parcel
+    b_l = -(e_0v - (c_vv - c_vl) * temp_trip) / (const.R_WATER * data.t)
+    c_l = b_l / a_l
+
+    # Calculate temperature at lifting condensation level (LCL)
+    # and liquid deposition level (LDL)
+    lamb_arg = rhl ** 1 / a_l * c_l * np.exp(c_l)
+    temp_lcl = c_l * lambertw(lamb_arg, -1).real * data.t
+    temp_lcl = xr.where(rh == 0, data.t, temp_lcl)
+    p_lcl = data.pressure * (temp_lcl/data.t) ** (c_p_air_parcel/r_air_parcel)
+    z_lcl = c_p_air_parcel / const.G * (data.t - temp_lcl)
+
+    return temp_lcl, p_lcl, z_lcl
+
+
+def temperature_lcl_bolton(data, inplace=True):
+    """Temperature at lifting condensation level (LCL)
+
+    Calculate the absolute temperature at the lifting condensation level
+    following [Bolton 1980]_ Eq. 22. Also adds relative humidity to data, if
+    not present
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        dataset containing temperature [K] (data.t), and either relative
+        humidity [%] (data.rh) or pressure [Pa] (data.pressure) and mixing
+        ratio [kg/kg] (data.q)in oder to compute the relative humidity
+    inplace : bool, optional, default=True
+        If True, add computed value to given dataset.
+
+    Returns
+    -------
+    temp_lcl : xr.DataArray
         absolute temperature [K] at the LCL
 
     Notes
@@ -348,14 +563,40 @@ def T_lcl_from_T_rh(data):
 
     if 'rh' not in data.keys():
         # Calculate relative humidity if not in data
-        rh = rh_from_t_q_p(data)
-    else:
-        rh = data['rh']
+        rh = relative_humidity(data, inplace=inplace)
+    rh = data.rh
 
     # calculate temperature at lifting condensation level
-    denominator = (1 / (data.t - 55)) + (np.log(rh * 1e-2) / 2840)
-    T_lcl = 1 / denominator + 55
-    return T_lcl
+    denominator = (1 / (data.t - 55)) - (np.log(rh * 1e-2) / 2840)
+    temp_lcl = 1 / denominator + 55
+    if inplace:
+        # add to dataset
+        data['temp_lcl'] = temp_lcl
+    return temp_lcl
+
+
+def equivalent_potential_temperature(data):
+    """Equivalent potential temperature, following Eq. 6.5 in [Davies 2009]_
+
+    Parameters
+    ----------
+    data
+
+    Returns
+    -------
+
+    """
+    # define constants
+    l0star = 2.56313e6  # units of joule per kilogram [J/kg]
+    l1star = 1754  # units of joule per kilogram per kelvin [J/(kg K)]
+    k2 = 1.137e6  # units of joule per kilogram [J/kg]
+
+    # numerator = (
+    #         l0star - l1star * (data.temp_lcl - const.TEMP_0) + k2 * data.w)
+    # theta_e = pot_temp_lcl * np.exp(
+    #     numerator / (const.SPEC_CP_DRY * data.temp_lcl))
+    # return theta_e
+    pass
 
 
 def theta_e_from_t_p_q_Tlcl(data):
@@ -392,7 +633,7 @@ def theta_e_from_t_p_q_Tlcl(data):
     """
 
     # Calculate temperature at LCL
-    T_lcl = T_lcl_from_T_rh(data)
+    T_lcl = temperature_lcl(data)
 
     # Specify exponents for following equation
     exp1 = const.R_DRY / const.SPEC_CP_DRY * (1 - 0.28 * data.q)
@@ -531,11 +772,11 @@ def calculate_all_vars(ds):
 
     # add all calculated variables
     # TODO check calculations with MetPy / atmos packages?
-    ds['rh'] = rh_from_t_q_p(ds)  # Needs temperature still in [K]
-    ds['theta'] = theta_from_t_p(ds)  # Potential temperature [K]
+    ds['rh'] = relative_humidity(ds)  # Needs temperature still in [K]
+    ds['theta'] = potential_temperature(ds)  # Potential temperature [K]
     ds['theta_e'] = theta_e_from_t_p_q_Tlcl(ds)  # Equivalent pot. temp. [K]
     ds['theta_es'] = theta_es_from_t_p_q(ds)  # Satur. equiv. pot. temp. [K]
-    ds['w_ms'] = w_from_omega(ds)  # Vertical velocity [m/s]
+    ds['w_ms'] = vertical_wind_speed(ds)  # Vertical velocity [m/s]
     ds['wspd'] = windspeed(ds)  # Total scalar wind speed [m/s]
     # ds['N_m'] = N_moist_squared(ds)  # Moist Brunt-Vaisala frequency [1/s^2]
     return ds

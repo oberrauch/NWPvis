@@ -45,7 +45,7 @@ class TestCalculations(TestCase):
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
                                    'pressure': xr.DataArray(p)})
         # compute potential temperature
-        theta = calculations.theta_from_t_p(ds)
+        theta = calculations.potential_temperature(ds)
 
         # test against analytic solution
         theta_anal = temp * (const.PRESSURE_0 / p) ** (
@@ -89,17 +89,28 @@ class TestCalculations(TestCase):
         """Test calculation of virtual temperature."""
         # create dummy data containing temperature [K] and mixing ratio [kg/kg]
         temp = 18. + const.TEMP_0
-        q = 6e-3
+        w = 6e-3
         # combine into dataset
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
-                                   'q': xr.DataArray(q)})
+                                   'w': xr.DataArray(w)})
         # compute virtual temperature
         temp_virtual = calculations.virtual_temperature(ds)
 
         # test against analytical solution
         temp_virtual_anal = temp * (
-                    1 + (const.R_WATER / const.R_DRY - 1.0) * q)
+                    1 + (const.R_WATER / const.R_DRY - 1.0) * w)
         np.testing.assert_allclose(temp_virtual, temp_virtual_anal)
+
+        # Following Exercise 3.7 in [Hobbs 2006]_
+        # create dummy data containing temperature [K] and mixing ratio [kg/kg]
+        temp = 303  # K
+        w = 20e-3  # kg/kg
+        # combine into dataset
+        ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
+                                   'w': xr.DataArray(w)})
+        # compute virtual temperature
+        temp_virtual = calculations.virtual_temperature(ds)
+        np.testing.assert_allclose(temp_virtual, 306.7, atol=0.1)
 
     def test_es_from_t(self):
         """Test calculations of saturation water vapor pressure."""
@@ -108,7 +119,7 @@ class TestCalculations(TestCase):
         # combine into dataset
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp)})
         # compute saturation water vapor pressure
-        es = calculations.es_from_t(ds)
+        es = calculations.saturation_pressure(ds)
 
         # test against analytic solution
         es_anal = 611.2 * np.exp(17.67 * (temp - const.TEMP_0)
@@ -133,7 +144,7 @@ class TestCalculations(TestCase):
                                    'pressure': xr.DataArray(p),
                                    'q': xr.DataArray(q)})
         # compute temperature
-        rh = calculations.rh_from_t_q_p(ds)
+        rh = calculations.relative_humidity(ds)
 
         # test against analytic solution
         es = 611.2 * np.exp(17.67 * (temp - const.TEMP_0)
@@ -160,7 +171,7 @@ class TestCalculations(TestCase):
                                    'w': xr.DataArray(omega)})
 
         # convert vertical wind speed into height coordinate
-        w_ms = calculations.w_from_omega(ds)
+        w_ms = calculations.vertical_wind_speed(ds)
 
         # test against analytical solution
         es = 611.2 * np.exp(17.67 * (temp - const.TEMP_0) / (temp - 29.65))
@@ -181,7 +192,7 @@ class TestCalculations(TestCase):
         ds = xr.Dataset(data_vars={'t': xr.DataArray(temp),
                                    'rh': xr.DataArray(rh)})
         # calculate temperature at LCL
-        temp_lcl = calculations.T_lcl_from_T_rh(ds)
+        temp_lcl = calculations.temperature_lcl(ds)
 
         # test against anayltical solution
         temp_lcl_anal = 1 / (1 / (temp - 55) + np.log(rh * 1e-2) / 2840) + 55

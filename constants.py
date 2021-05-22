@@ -25,10 +25,12 @@ G = 9.80665  # [m/s^2]
 # Gas constants for the equation of state [Markowski 2016]_
 R_DRY = 287.04  # [J/kg/K] gas constant, dry air
 R_WATER = 461.51  # [J/kg/K] gas constant, water vapor
+EPSILON = R_DRY / R_WATER
 
 # Specific isobaric heat capacities
 # TODO: REF and exact values (currently from https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities)
-SPEC_CP_DRY = 1003.5  # [J/kg/K] dry air, at 0 degC and sea level
+# SPEC_CP_DRY = 1003.5  # [J/kg/K] dry air, at 0 degC and sea level
+SPEC_CP_DRY = 1005.7  # [J/kg/K] dry air from [Davies-Jones 2009]_
 SPEC_CP_WATER = 4181.3  # [J/kg/K] liquid water at 25 degC
 
 # reference values
